@@ -142,3 +142,12 @@ add_library(moduleVersionTPSA OBJECT opm/simulators/utils/moduleVersion.cpp)
 set_property(TARGET moduleVersionTPSA PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(moduleVersionTPSA PRIVATE "${PROJECT_BINARY_DIR}")
 add_dependencies(moduleVersionTPSA opmtpsa)
+
+# Tests
+add_executable(test_face_properties
+  tests/test_face_properties.cpp
+)
+target_link_libraries(test_face_properties
+  PUBLIC 
+    opmtpsa ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+)
