@@ -26,7 +26,7 @@
 
 #include <opm/grid/CpGrid.hpp>
 
-#include <opm/simulators/tpsa/FaceProperties_impl.hpp>
+#include <opm/simulators/tpsa/FacePropertiesTPSA_impl.hpp>
 
 #if HAVE_DUNE_FEM
 #include <dune/common/version.hh>
@@ -34,17 +34,17 @@
 #include <opm/simulators/flow/FemCpGridCompat.hpp>
 #endif
 
-namespace Opm::TPSA {
+namespace Opm {
 
-#define INSTANTIATE_TYPE(T)                                                                  \
-    template class FaceProperties<Dune::CpGrid,                                              \
-                                  Dune::GridView<                                            \
-                                        Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>,      \
-                                  Dune::MultipleCodimMultipleGeomTypeMapper<                 \
-                                        Dune::GridView<                                      \
-                                            Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>>, \
-                                  Dune::CartesianIndexMapper<Dune::CpGrid>,                  \
-                                  T>;
+#define INSTANTIATE_TYPE(T)                                                                      \
+    template class FacePropertiesTPSA<Dune::CpGrid,                                              \
+                                      Dune::GridView<                                            \
+                                            Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>,      \
+                                      Dune::MultipleCodimMultipleGeomTypeMapper<                 \
+                                            Dune::GridView<                                      \
+                                                Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>>, \
+                                      Dune::CartesianIndexMapper<Dune::CpGrid>,                  \
+                                      T>;
 
 INSTANTIATE_TYPE(double)
 
@@ -56,20 +56,20 @@ INSTANTIATE_TYPE(float)
 using GV = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid,
                                            (Dune::PartitionIteratorType)4,
                                            false>;
-template class FaceProperties<Dune::CpGrid,
-                              GV,
-                              Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
-                              Dune::CartesianIndexMapper<Dune::CpGrid>,
-                              double>;
+template class FacePropertiesTPSA<Dune::CpGrid,
+                                  GV,
+                                  Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
+                                  Dune::CartesianIndexMapper<Dune::CpGrid>,
+                                  double>;
 
 #if FLOW_INSTANTIATE_FLOAT
-template class FaceProperties<Dune::CpGrid,
-                              GV,
-                              Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
-                              Dune::CartesianIndexMapper<Dune::CpGrid>,
-                              float>;
+template class FacePropertiesTPSA<Dune::CpGrid,
+                                  GV,
+                                  Dune::MultipleCodimMultipleGeomTypeMapper<GV>,
+                                  Dune::CartesianIndexMapper<Dune::CpGrid>,
+                                  float>;
 #endif
 
 #endif // HAVE_DUNE_FEM
 
-}  // namespace Opm::TPSA
+}  // namespace Opm

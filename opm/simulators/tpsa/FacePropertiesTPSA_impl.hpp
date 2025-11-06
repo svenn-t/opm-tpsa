@@ -27,7 +27,7 @@
 
 #ifndef TPSA_FACE_PROPERTIES_HPP
 #include <config.h>
-#include <opm/simulators/tpsa/FaceProperties.hpp>
+#include <opm/simulators/tpsa/FacePropertiesTPSA.hpp>
 #endif
 
 #include <dune/grid/common/mcmgmapper.hh>
@@ -45,22 +45,20 @@
 #include <utility>
 
 
-namespace Opm::TPSA {
+namespace Opm {
 
+// Copied from Opm::Transmissibility class
 namespace details {
-
     constexpr unsigned elemIdxShift = 32; // bits
 
-    // Copied from Opm::Transmissibility class
-    std::uint64_t isId(std::uint32_t elemIdx1, std::uint32_t elemIdx2)
+    std::uint64_t isIdTPSA(std::uint32_t elemIdx1, std::uint32_t elemIdx2)
     {
         const std::uint32_t elemAIdx = std::min(elemIdx1, elemIdx2);
         const std::uint64_t elemBIdx = std::max(elemIdx1, elemIdx2);
 
         return (elemBIdx << elemIdxShift) + elemAIdx;
     }
-
-}  // namespace details
+}  // namespace Opm::details
 
 // /////
 // Public functions
@@ -75,8 +73,8 @@ namespace details {
 * \param centroids Function to lookup cell centroids
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-FaceProperties(const EclipseState& eclState,
+FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+FacePropertiesTPSA(const EclipseState& eclState,
                const GridView& gridView,
                const CartesianIndexMapper& cartMapper,
                const Grid& grid,
@@ -88,24 +86,23 @@ FaceProperties(const EclipseState& eclState,
     , centroids_(centroids)
     , lookUpData_(gridView)
     , lookUpCartesianData_(gridView, cartMapper)
-{
-}
+{ }
 
 /*!
-* \brief Compute all face properties
+* \brief Compute TPSA face properties
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-void FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 finishInit()
 {
     update();
 }
 
 /*!
-* \brief Compute TPSA face properties 
-*/ 
+* \brief Compute TPSA face properties
+*/
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-void FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 update()
 {
     // Number of elements
@@ -113,7 +110,7 @@ update()
     unsigned numElements = elemMapper.size();
 
     // Extract shear modulus (Lame's sec. params)
-    extractSmodulus_();
+    extractSModulus_();
 
     // Init. containers
     // Note (from Transmissibility::update): Reserving some space in the hashmap upfront saves quite a bit of time
@@ -147,10 +144,10 @@ update()
     ThreadSafeMapBuilder faceAreaBoundaryMap(faceAreaBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder faceNormalBoundaryMap(faceNormalBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
 
-    // Loop over grid element an compute face properties
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
+    // Loop over grid element an compute face properties
     for (const auto& chunk : ElementChunks(gridView_, Dune::Partitions::all, num_threads)) {
         for (const auto& elem : chunk) {
             // Init. face info for inside/outside cells
@@ -168,7 +165,7 @@ update()
             for (const auto& intersection : intersections(gridView_, elem)) {
                 // Handle grid boundary
                 if (intersection.boundary()) {
-                    // Onesided cell properties
+                    // One-sided cell properties
                     const auto& geometry = intersection.geometry();
                     inside.faceCenter = geometry.center();
                     inside.faceArea = geometry.volume();
@@ -179,7 +176,6 @@ update()
                     Scalar distBound = computeDistance_(distanceVector_(inside.faceCenter, inside.elemIdx), faceNormal);
                     distanceBoundaryMap.insert_or_assign(index_pair, distBound);
 
-                    // Scalar weightBound = computeWeight_(distBound, smodulus_[inside.elemIdx]);
                     Scalar weightsAvgBound = 1.0;  // w_j = 0 -> w_avg = wi / (wi + 0)
                     Scalar weightsProdBound = 0.0;  // w_j = 0 -> w_prod = wi * 0
                     weightsAvgBoundaryMap.insert_or_assign(index_pair, weightsAvgBound);
@@ -192,7 +188,7 @@ update()
                     continue;
                 }
 
-                // Handle intersection on process boundary (i.e., neighbor on different rank) 
+                // Handle intersection on process boundary (i.e., neighbor on different rank)
                 if (!intersection.neighbor()) {
                     ++boundaryIsIdx;
                     continue;
@@ -204,13 +200,18 @@ update()
                 outside.cartElemIdx = lookUpCartesianData_.
                     template getFieldPropCartesianIdx<Grid>(outside.elemIdx);
 
+                // Skip intersections that have already been processed
+                if (std::tie(inside.cartElemIdx, inside.elemIdx) > std::tie(outside.cartElemIdx, outside.elemIdx)) {
+                    continue;
+                }
+
                 // Face indices for this intersection
                 inside.faceIdx  = intersection.indexInInside();
                 outside.faceIdx = intersection.indexInOutside();
 
                 // Set NNC face properties to zero
                 if (inside.faceIdx == -1) {
-                    const auto id = details::isId(inside.elemIdx, outside.elemIdx);
+                    const auto id = details::isIdTPSA(inside.elemIdx, outside.elemIdx);
                     weightsAvgMap.insert_or_assign(id, 0.0);
                     distanceMap.insert_or_assign(id, 0.0);
                     faceAreaMap.insert_or_assign(id, 0.0);
@@ -228,13 +229,13 @@ update()
                                       isCpGrid);
 
                 // Compute face properties
-                const auto id = details::isId(inside.elemIdx, outside.elemIdx);
+                const auto id = details::isIdTPSA(inside.elemIdx, outside.elemIdx);
                 Scalar dist_in = computeDistance_(distanceVector_(inside.faceCenter, inside.elemIdx), faceNormal);
                 Scalar dist_out = computeDistance_(distanceVector_(outside.faceCenter, outside.elemIdx), faceNormal);
                 distanceMap.insert_or_assign(id, dist_in + dist_out);
 
-                Scalar weight_in = computeWeight_(dist_in, smodulus_[inside.elemIdx]);
-                Scalar weight_out = computeWeight_(dist_out, smodulus_[outside.elemIdx]);
+                Scalar weight_in = computeWeight_(dist_in, sModulus_[inside.elemIdx]);
+                Scalar weight_out = computeWeight_(dist_out, sModulus_[outside.elemIdx]);
                 Scalar weightsAvg = weight_in / (weight_in + weight_out);
                 Scalar weightsProd = weight_in * weight_out;
                 weightsAvgMap.insert_or_assign(id, weightsAvg);
@@ -254,10 +255,10 @@ update()
 * \param elemIdx1 Cell index 2
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 weightAverage(unsigned elemIdx1, unsigned elemIdx2) const
 {
-    auto tmp_whgt = weightsAvg_.at(details::isId(elemIdx1, elemIdx2));
+    auto tmp_whgt = weightsAvg_.at(details::isIdTPSA(elemIdx1, elemIdx2));
     if (elemIdx1 < elemIdx2) {
         return tmp_whgt;
     }
@@ -273,7 +274,7 @@ weightAverage(unsigned elemIdx1, unsigned elemIdx2) const
 * \param boundaryFaceIdx Face index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 weightAverageBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 {
     return weightsAvgBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
@@ -286,10 +287,10 @@ weightAverageBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 * \param elemIdx1 Cell index 2
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 weightProduct(unsigned elemIdx1, unsigned elemIdx2) const
 {
-    return weightsProd_.at(details::isId(elemIdx1, elemIdx2));
+    return weightsProd_.at(details::isIdTPSA(elemIdx1, elemIdx2));
 }
 
 /*!
@@ -299,7 +300,7 @@ weightProduct(unsigned elemIdx1, unsigned elemIdx2) const
 * \param boundaryFaceIdx Face index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 weightProductBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 {
     return weightsProdBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
@@ -312,10 +313,10 @@ weightProductBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 * \param elemIdx1 Cell index 2
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 normalDistance(unsigned elemIdx1, unsigned elemIdx2) const
 {
-    return distance_.at(details::isId(elemIdx1, elemIdx2));
+    return distance_.at(details::isIdTPSA(elemIdx1, elemIdx2));
 }
 
 /*!
@@ -325,7 +326,7 @@ normalDistance(unsigned elemIdx1, unsigned elemIdx2) const
 * \param boundaryFaceIdx Face index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 normalDistanceBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 {
     return distanceBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
@@ -338,10 +339,10 @@ normalDistanceBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 * \param elemIdx1 Cell index 2
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 cellFaceArea(unsigned elemIdx1, unsigned elemIdx2) const
 {
-    return faceArea_.at(details::isId(elemIdx1, elemIdx2));
+    return faceArea_.at(details::isIdTPSA(elemIdx1, elemIdx2));
 }
 
 /*!
@@ -351,7 +352,7 @@ cellFaceArea(unsigned elemIdx1, unsigned elemIdx2) const
 * \param boundaryFaceIdx Face index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 cellFaceAreaBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 {
     return faceAreaBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
@@ -364,12 +365,12 @@ cellFaceAreaBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 * \param elemIdx1 Cell index 2
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-typename FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector
-FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2) const
+typename FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector
+FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2)
 {
     int sign = (elemIdx1 < elemIdx2) ? 1 : -1;
-    return sign * faceNormal_.at(details::isId(elemIdx1, elemIdx2));
+    return sign * faceNormal_.at(details::isIdTPSA(elemIdx1, elemIdx2));
 }
 
 /*!
@@ -379,8 +380,8 @@ cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2) const
 * \param boundaryFaceIdx Face index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-typename FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector
-FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+const typename FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector&
+FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 cellFaceNormalBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 {
     return faceNormalBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
@@ -396,9 +397,8 @@ cellFaceNormalBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 * \param faceNormal Face (unit) normal vector
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-computeDistance_(const DimVector& distVec,
-                 const DimVector& faceNormal)
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+computeDistance_(const DimVector& distVec, const DimVector& faceNormal)
 {
     return std::abs(Dune::dot(faceNormal, distVec));
 }
@@ -413,7 +413,7 @@ computeDistance_(const DimVector& distVec,
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
 template<class Intersection>
-void FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 computeCellProperties(const Intersection& intersection,
                       FaceInfo& inside,
                       FaceInfo& outside,
@@ -425,6 +425,7 @@ computeCellProperties(const Intersection& intersection,
     outside.faceCenter = inside.faceCenter = geometry.center();
     outside.faceArea = inside.faceArea = geometry.volume();
 
+    // OBS: Have not checked if this points from cell with lower to higher index!
     faceNormal = intersection.centerUnitOuterNormal();
 }
 
@@ -438,7 +439,7 @@ computeCellProperties(const Intersection& intersection,
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
 template<class Intersection>
-void FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 computeCellProperties(const Intersection& intersection,
                       FaceInfo& inside,
                       FaceInfo& outside,
@@ -447,11 +448,18 @@ computeCellProperties(const Intersection& intersection,
 {
     int faceIdx = intersection.id();
     if (grid_.maxLevel() == 0) {
+        // Face center coordinates
         inside.faceCenter = grid_.faceCenterEcl(inside.elemIdx, inside.faceIdx, intersection);
         outside.faceCenter = grid_.faceCenterEcl(outside.elemIdx, outside.faceIdx, intersection);
 
+        // Face area
         inside.faceArea = outside.faceArea = grid_.faceArea(faceIdx);
+
+        // Face normal, ensuring it points from cell with lower to higher index
         faceNormal = grid_.faceNormal(faceIdx);
+        if (grid_.faceCell(faceIdx, 0) > grid_.faceCell(faceIdx, 1)) {
+            faceNormal *= -1;
+        }
     }
     else {
         throw std::runtime_error("TPSA not implemented with LGR");
@@ -466,24 +474,22 @@ computeCellProperties(const Intersection& intersection,
 * \param smod Shear modulus
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-computeWeight_(const Scalar distance,
-               const Scalar smod)
+Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+computeWeight_(const Scalar distance, const Scalar smod)
 {
     return distance / smod;
 }
 
 /*!
-* \brief Distance vector from cell center to face center 
+* \brief Distance vector from cell center to face center
 *
 * \param faceCenter Face center coordinates
-* \param cellIdx Cell index 
+* \param cellIdx Cell index
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-typename FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector
-FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-distanceVector_(const DimVector& faceCenter,
-                const unsigned& cellIdx) const
+typename FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::DimVector
+FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+distanceVector_(const DimVector& faceCenter, const unsigned& cellIdx) const
 {
     const auto& cellCenter = centroids_cache_.empty() ? centroids_(cellIdx)
                                                       : centroids_cache_[cellIdx];
@@ -497,28 +503,28 @@ distanceVector_(const DimVector& faceCenter,
 
 /*!
 * \brief Extract shear modulus from eclState
-* 
-* \note (from Transmissibility::extractPorosity()): 
+*
+* \note (from Transmissibility::extractPorosity()):
 *   All arrays provided by eclState are one-per-cell of "uncompressed" grid, whereas the simulation grid might remove a
 *   few elements (e.g. because it is distributed over several processes).
 */
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-void FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-extractSmodulus_()
+void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
+extractSModulus_()
 {
     const auto& fp = eclState_.fieldProps();
     if (fp.has_double("SMODULUS")) {
         if constexpr (std::is_same_v<Scalar, double>) {
-            smodulus_ = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
+            sModulus_ = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
         }
         else {
             const auto smod = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
-            smodulus_.resize(smod.size());
-            std::copy(smod.begin(), smod.end(), smodulus_.begin());
+            sModulus_.resize(smod.size());
+            std::copy(smod.begin(), smod.end(), sModulus_.begin());
         }
     }
 }
 
-}  // namespace Opm::TPSA
+}  // namespace Opm
 
 #endif

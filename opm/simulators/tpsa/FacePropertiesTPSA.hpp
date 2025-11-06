@@ -22,11 +22,6 @@
   module for the precise wording of the license and the list of
   copyright holders.
 */
-/*!
- * \file
- *
- * \copydoc Opm::TSPA::FaceProperties
- */
 #ifndef TPSA_FACE_PROPERTIES_HPP
 #define TPSA_FACE_PROPERTIES_HPP
 
@@ -44,21 +39,20 @@ namespace Opm {
 
 class EclipseState;
 
-namespace TPSA {
 
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-class FaceProperties {
-    // Grid and world dimension
+class FacePropertiesTPSA {
+
     enum { dimWorld = GridView::dimensionworld };
 
 public:
     using DimVector = Dune::FieldVector<Scalar, dimWorld>;
 
-    FaceProperties(const EclipseState& eclState,
-                   const GridView& gridView,
-                   const CartesianIndexMapper& cartMapper,
-                   const Grid& grid,
-                   std::function<std::array<double, dimWorld>(int)> centroids);
+    FacePropertiesTPSA(const EclipseState& eclState,
+                       const GridView& gridView,
+                       const CartesianIndexMapper& cartMapper,
+                       const Grid& grid,
+                       std::function<std::array<double, dimWorld>(int)> centroids);
 
     void finishInit();
 
@@ -72,14 +66,14 @@ public:
     Scalar normalDistanceBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
     Scalar cellFaceArea(unsigned elemIdx1, unsigned elemIdx2) const;
     Scalar cellFaceAreaBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
-    DimVector cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2) const;
-    DimVector cellFaceNormalBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
+    DimVector cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2);
+    const DimVector& cellFaceNormalBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
 
     /*!
     * \brief Return shear modulus of an element
     */
     const Scalar shearModulus(unsigned elemIdx) const
-    { return smodulus_[elemIdx]; }
+    { return sModulus_[elemIdx]; }
 
 
 protected:
@@ -106,18 +100,15 @@ protected:
                                DimVector& faceNormal,
                                /*isCpGrid=*/std::true_type) const;
 
-    Scalar computeDistance_(const DimVector& distVec,
-                            const DimVector& faceNormal);
+    Scalar computeDistance_(const DimVector& distVec, const DimVector& faceNormal);
 
-    Scalar computeWeight_(const Scalar distance,
-                          const Scalar smod);
+    Scalar computeWeight_(const Scalar distance, const Scalar smod);
 
-    DimVector distanceVector_(const DimVector& faceCenter,
-                              const unsigned& cellIdx) const;
+    DimVector distanceVector_(const DimVector& faceCenter, const unsigned& cellIdx) const;
 
-    void extractSmodulus_();
+    void extractSModulus_();
 
-    std::vector<Scalar> smodulus_;
+    std::vector<Scalar> sModulus_;
     std::unordered_map<std::uint64_t, Scalar> weightsAvg_;
     std::unordered_map<std::uint64_t, Scalar> weightsProd_;
     std::unordered_map<std::uint64_t, Scalar> distance_;
@@ -140,13 +131,11 @@ protected:
     const LookUpData<Grid, GridView> lookUpData_;
     const LookUpCartesianData<Grid, GridView> lookUpCartesianData_;
 
-};  // FaceProperties
+};  // FacePropertiesTPSA
 
 namespace details {
-    std::uint64_t isId(std::uint32_t elemIdx1, std::uint32_t elemIdx2);
+    std::uint64_t isIdTPSA(std::uint32_t elemIdx1, std::uint32_t elemIdx2);
 }  // namespace details
-
-}  // namespace TPSA
 
 }  // namespace Opm
 
