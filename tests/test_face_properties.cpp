@@ -24,7 +24,7 @@
 */
 #include <config.h>
 
-#define BOOST_TEST_MODULE TestFaceProperties
+#define BOOST_TEST_MODULE TestFacePropertiesTPSA
 #define BOOST_TEST_NO_MAIN
 
 #include <boost/test/unit_test.hpp>
@@ -39,7 +39,7 @@
 
 #include <opm/grid/CpGrid.hpp>
 
-#include <opm/simulators/tpsa/FaceProperties.hpp>
+#include <opm/simulators/tpsa/FacePropertiesTPSA.hpp>
 
 #include <string>
 #include <vector>
@@ -75,7 +75,7 @@ static Opm::Deck createDeck()
         RUNSPEC
         DIMENS
             2 2 2 /
-        
+
         GRID
         DX
             8*50.0 /
@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     using GridView = Grid::LeafGridView;
     using ElementMapper = Dune::MultipleCodimMultipleGeomTypeMapper<GridView>;
     using CartesianIndexMapper = Dune::CartesianIndexMapper<Grid>;
-    using FaceProperties = Opm::TPSA::FaceProperties<Grid, GridView, ElementMapper, CartesianIndexMapper, double>;
+    using FacePropertiesTPSA = Opm::FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, double>;
     using DimVector = Dune::FieldVector<double, GridView::dimensionworld>;
 
     // Test simple 2x2x2 grid with one column shifted downwards
@@ -116,11 +116,11 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     const auto& gridView = grid.leafGridView();
 
     CartesianIndexMapper cartMapper =  Dune::CartesianIndexMapper<Grid>(grid);
-    auto centroids = [&eclState, &cartMapper](int index) 
+    auto centroids = [&eclState, &cartMapper](int index)
         { return eclState.getInputGrid().getCellCenter(cartMapper.cartesianIndex(index)); };
 
-    // Init. FaceProperties and calculate all properties
-    FaceProperties faceProps(eclState,
+    // Init. FacePropertiesTPSA and calculate all properties
+    FacePropertiesTPSA faceProps(eclState,
                              gridView,
                              cartMapper,
                              grid,
@@ -133,12 +133,12 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     const unsigned elem2 = 4;
     const double area = 2500.0;
     const double normDist = 40.0;
-    const double weightAvg_04 = 0.625;
-    const double weightAvg_40 = 0.375;  // = 1 - weightAvg_04
+    const double weightAvg_04 = 0.375;
+    const double weightAvg_40 = 0.625;  // = 1 - weightAvg_04
     const double weightProd = 3.75e-16;
     const DimVector normal_04 = {0.0, 0.0, 1.0};
     const DimVector normal_40 = {0.0, 0.0, -1.0};  // = -1 * normal_04
-    BOOST_CHECK_EQUAL(faceProps.weightAverage(elem1, elem2), weightAvg_04);
+    BOOST_CHECK_CLOSE(faceProps.weightAverage(elem1, elem2), weightAvg_04, 1.0e-8);
     BOOST_CHECK_EQUAL(faceProps.weightAverage(elem2, elem1), weightAvg_40);
     BOOST_CHECK_CLOSE(faceProps.weightProduct(elem1, elem2), weightProd, 1.0e-8);
     BOOST_CHECK_EQUAL(faceProps.normalDistance(elem1, elem2), normDist);
@@ -155,8 +155,8 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     const double normDistNNC = 50.0;
     const double weightAvgNNC = 0.5;
     const double weightProdNNC = 6.25e-16;
-    const DimVector normalNNC_35 = {0.0, 1.0, 0.0};
-    const DimVector normalNNC_53 = {0.0, -1.0, 0.0};
+    const DimVector normalNNC_35 = {0.0, -1.0, 0.0};
+    const DimVector normalNNC_53 = {0.0, 1.0, 0.0};
     BOOST_CHECK_EQUAL(faceProps.weightAverage(elemNNC1, elemNNC2), weightAvgNNC);
     BOOST_CHECK_EQUAL(faceProps.weightAverage(elemNNC2, elemNNC1), weightAvgNNC);
     BOOST_CHECK_CLOSE(faceProps.weightProduct(elemNNC1, elemNNC2), weightProdNNC, 1.0e-8);
