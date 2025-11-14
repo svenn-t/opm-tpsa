@@ -325,13 +325,14 @@ private:
         neighborInfo_.reserve(numCells, 6 * numCells);
         std::vector<NeighborInfo> loc_nbinfo;
         for (const auto& elem : elements(gridView_())) {
-
             // Loop over primary dofs in the element
             stencil.update(elem);
+
             for (unsigned primaryDofIdx = 0; primaryDofIdx < stencil.numPrimaryDof(); ++primaryDofIdx) {
                 // Build up neighboring information for curret primary dof
                 const unsigned myIdx = stencil.globalSpaceIndex(primaryDofIdx);
                 loc_nbinfo.resize(stencil.numDof() - 1);
+
                 for (unsigned dofIdx = 0; dofIdx < stencil.numDof(); ++dofIdx) {
                     // NOTE: NeighborInfo could/should be expanded with cell face parameters located in problem_()
                     // needed when computing face terms in LocalResidual
@@ -349,7 +350,9 @@ private:
                 neighborInfo_.appendRow(loc_nbinfo.begin(), loc_nbinfo.end());
 
                 // Boundary condition information
-                for (unsigned bfIndex = 0; bfIndex < stencil.numBoundaryFaces(); ++bfIndex) {
+                unsigned bfIndex = 0;
+                for (const auto& intersection : intersections(gridView_(), elem)) {
+                    if (intersection.boundary()) {
                     // Get boundary face direction
                     const auto& bf = stencil.boundaryFace(bfIndex);
                     const int dir_id = bf.dirId();
@@ -371,8 +374,14 @@ private:
                     // Insert boundary condition data in container
                     BoundaryConditionData bcdata { type, displacement, bfIndex, bf.area() };
                     boundaryInfo_.push_back( { myIdx, dir_id, bfIndex, bcdata } );
+                    ++bfIndex;
+                    continue;
+                    }
+                    if (!intersection.neighbor()) {
+                        ++bfIndex;
+                        continue;
+                    }
                 }
-
             }
         }
 
