@@ -143,11 +143,22 @@ set_property(TARGET moduleVersionTPSA PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(moduleVersionTPSA PRIVATE "${PROJECT_BINARY_DIR}")
 add_dependencies(moduleVersionTPSA opmtpsa)
 
+# Flow variants
+opm_add_test(flow_onephase_tpsa
+             ONLY_COMPILE
+             ALWAYS_ENABLE
+             DEPENDS opmsimulators opmtpsa
+             LIBRARIES opmsimulators opmtpsa
+             SOURCES
+             flow/flow_onephase_tpsa.cpp
+             $<TARGET_OBJECTS:moduleVersionTPSA>
+)
+
 # Tests
 add_executable(test_face_properties
   tests/test_face_properties.cpp
 )
 target_link_libraries(test_face_properties
-  PUBLIC 
+  PUBLIC
     opmtpsa ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
 )

@@ -20,10 +20,25 @@
 #                       you should only add to this list if the *user* of
 #                       the library needs it.
 list (APPEND MAIN_SOURCE_FILES
-  opm/simulators/tpsa/FaceProperties.cpp
+  opm/simulators/tpsa/FacePropertiesTPSA.cpp
+  opm/simulators/tpsa/FlexibleSolver7.cpp
+  opm/simulators/tpsa/PreconditionerFactory7.cpp
+  opm/simulators/tpsa/tpsanewtonmethodparams.cpp
 )
 
 list (APPEND PUBLIC_HEADER_FILES
-  opm/simulators/tpsa/FaceProperties.hpp
-  opm/simulators/tpsa/FaceProperties_impl.hpp
+  opm/simulators/tpsa/BlackOilModelTPSA.hpp
+  opm/simulators/tpsa/elasticityindices.hpp
+  opm/simulators/tpsa/elasticitylocalresidualtpsa.hpp
+  opm/simulators/tpsa/elasticityprimaryvariables.hpp
+  opm/simulators/tpsa/FacePropertiesTPSA.hpp
+  opm/simulators/tpsa/FacePropertiesTPSA_impl.hpp
+  opm/simulators/tpsa/FlowProblemTPSA.hpp
+  opm/simulators/tpsa/MaterialState.hpp
+  opm/simulators/tpsa/tpsabaseproperties.hpp
+  opm/simulators/tpsa/tpsalinearizer.hpp
+  opm/simulators/tpsa/tpsamodel.hpp
+  opm/simulators/tpsa/tpsanewtonconvergencewriter.hpp
+  opm/simulators/tpsa/tpsanewtonmethod.hpp
+  opm/simulators/tpsa/tpsanewtonmethodparams.hpp
 )
