@@ -152,6 +152,15 @@ public:
     }
 
     /*!
+    * \brief Register runtime parameters
+    */
+    static void registerParameters()
+    {
+        // Newton method parameters
+        NewtonMethod::registerParameters();
+    }
+
+    /*!
     * \brief Prepare TPSA model for coupled Flow-TPSA scheme
     */
     void prepareTPSA()

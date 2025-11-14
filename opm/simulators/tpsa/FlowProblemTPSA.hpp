@@ -121,6 +121,9 @@ public:
         // Register parameters for parent class
         ParentType::registerParameters();
 
+        // Geomech model parameters
+        GeomechModel::registerParameters();
+
         // Register TPSA runtime parameters
         Parameters::Register<Parameters::TpsaCouplingScheme>
             ("Choose scheme for coupling Flow and TPSA geomechanics: \"lagged\" or \"fixed-stress\"");
@@ -241,7 +244,7 @@ public:
     std::pair<BCMECHType, Dune::FieldVector<Evaluation, 3>>
     mechBoundaryCondition(const unsigned int globalSpaceIdx, const int directionId)
     {
-        return { BCMECHType::NONE,  Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        return { BCMECHType::NONE, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
     }
 
     /*!
