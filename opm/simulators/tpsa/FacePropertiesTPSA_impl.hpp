@@ -75,10 +75,10 @@ namespace details {
 template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
 FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 FacePropertiesTPSA(const EclipseState& eclState,
-               const GridView& gridView,
-               const CartesianIndexMapper& cartMapper,
-               const Grid& grid,
-               std::function<std::array<double,dimWorld>(int)> centroids)
+                   const GridView& gridView,
+                   const CartesianIndexMapper& cartMapper,
+                   const Grid& grid,
+                   std::function<std::array<double,dimWorld>(int)> centroids)
     : eclState_(eclState)
     , gridView_(gridView)
     , cartMapper_(cartMapper)
@@ -259,7 +259,12 @@ Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, S
 weightAverage(unsigned elemIdx1, unsigned elemIdx2) const
 {
     auto tmp_whgt = weightsAvg_.at(details::isIdTPSA(elemIdx1, elemIdx2));
-    if (elemIdx1 < elemIdx2) {
+
+    auto cartIdx1 = lookUpCartesianData_.
+        template getFieldPropCartesianIdx<Grid>(elemIdx1);
+    auto cartIdx2 = lookUpCartesianData_.
+        template getFieldPropCartesianIdx<Grid>(elemIdx2);
+    if (cartIdx1 < cartIdx2) {
         return tmp_whgt;
     }
     else {
@@ -369,7 +374,11 @@ typename FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper,
 FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2)
 {
-    int sign = (elemIdx1 < elemIdx2) ? 1 : -1;
+    auto cartIdx1 = lookUpCartesianData_.
+        template getFieldPropCartesianIdx<Grid>(elemIdx1);
+    auto cartIdx2 = lookUpCartesianData_.
+        template getFieldPropCartesianIdx<Grid>(elemIdx2);
+    int sign = (cartIdx1 < cartIdx2) ? 1 : -1;
     return sign * faceNormal_.at(details::isIdTPSA(elemIdx1, elemIdx2));
 }
 
@@ -455,9 +464,13 @@ computeCellProperties(const Intersection& intersection,
         // Face area
         inside.faceArea = outside.faceArea = grid_.faceArea(faceIdx);
 
-        // Face normal, ensuring it points from cell with lower to higher index
+        // Face normal, ensuring it points from cell with lower to higher (global grid) index
         faceNormal = grid_.faceNormal(faceIdx);
-        if (grid_.faceCell(faceIdx, 0) > grid_.faceCell(faceIdx, 1)) {
+        auto cartFaceCell0 = lookUpCartesianData_.
+            template getFieldPropCartesianIdx<Grid>(grid_.faceCell(faceIdx, 0));
+        auto cartFaceCell1 = lookUpCartesianData_.
+            template getFieldPropCartesianIdx<Grid>(grid_.faceCell(faceIdx, 1));
+        if (cartFaceCell0 > cartFaceCell1) {
             faceNormal *= -1;
         }
     }
@@ -512,16 +525,18 @@ template<class Grid, class GridView, class ElementMapper, class CartesianIndexMa
 void FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
 extractSModulus_()
 {
+    unsigned numElem = gridView_.size(/*codim=*/0);
+    sModulus_.resize(numElem);
+
     const auto& fp = eclState_.fieldProps();
     if (fp.has_double("SMODULUS")) {
-        if constexpr (std::is_same_v<Scalar, double>) {
-            sModulus_ = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
+        const std::vector<double>& sModulusData = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
+        for (std::size_t dofIdx = 0; dofIdx < numElem; ++ dofIdx) {
+            sModulus_[dofIdx] = sModulusData[dofIdx];
         }
-        else {
-            const auto smod = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
-            sModulus_.resize(smod.size());
-            std::copy(smod.begin(), smod.end(), sModulus_.begin());
-        }
+    }
+    else {
+        throw std::logic_error("Cannot read shear modulus data from ecl state, SMODULUS keyword missing!");
     }
 }
 
