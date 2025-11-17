@@ -162,3 +162,11 @@ target_link_libraries(test_face_properties
   PUBLIC
     opmtpsa ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
 )
+
+add_executable(test_materialstate
+  tests/test_materialstate.cpp
+)
+target_link_libraries(test_materialstate
+  PUBLIC
+    opmtpsa ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+)
