@@ -353,29 +353,29 @@ private:
                 unsigned bfIndex = 0;
                 for (const auto& intersection : intersections(gridView_(), elem)) {
                     if (intersection.boundary()) {
-                    // Get boundary face direction
-                    const auto& bf = stencil.boundaryFace(bfIndex);
-                    const int dir_id = bf.dirId();
+                        // Get boundary face direction
+                        const auto& bf = stencil.boundaryFace(bfIndex);
+                        const int dir_id = bf.dirId();
 
-                    // Skip NNCs
-                    if (dir_id < 0) {
+                        // Skip NNCs
+                        if (dir_id < 0) {
+                            continue;
+                        }
+
+                        // Get boundary information from problem()
+                        const auto [type, displacementAD] = problem_().mechBoundaryCondition(myIdx, dir_id);
+
+                        // Strip the unnecessary (and zero anyway) derivatives off displacement
+                        std::vector<double> displacement(3, 0.0);
+                        for (std::size_t ii = 0; ii < displacement.size(); ++ii) {
+                            displacement[ii] = displacementAD[ii].value();
+                        }
+
+                        // Insert boundary condition data in container
+                        BoundaryConditionData bcdata { type, displacement, bfIndex, bf.area() };
+                        boundaryInfo_.push_back( { myIdx, dir_id, bfIndex, bcdata } );
+                        ++bfIndex;
                         continue;
-                    }
-
-                    // Get boundary information from problem()
-                    const auto [type, displacementAD] = problem_().mechBoundaryCondition(myIdx, dir_id);
-
-                    // Strip the unnecessary (and zero anyway) derivatives off displacement
-                    std::vector<double> displacement(3, 0.0);
-                    for (std::size_t ii = 0; ii < displacement.size(); ++ii) {
-                        displacement[ii] = displacementAD[ii].value();
-                    }
-
-                    // Insert boundary condition data in container
-                    BoundaryConditionData bcdata { type, displacement, bfIndex, bf.area() };
-                    boundaryInfo_.push_back( { myIdx, dir_id, bfIndex, bcdata } );
-                    ++bfIndex;
-                    continue;
                     }
                     if (!intersection.neighbor()) {
                         ++bfIndex;
