@@ -217,7 +217,12 @@ public:
         case BCMECHType::FIXED:
             throw std::runtime_error("BCTYPE FIXED has not been implemented in TPSA");
         case BCMECHType::FREE:
-            throw std::runtime_error("BCTYPE FREE has not been implemented in TPSA");
+            computeBoundaryTermFree(bndryTerm,
+                                    materialState,
+                                    bdyInfo,
+                                    problem,
+                                    globalIndex);
+            break;
         default:
             throw std::logic_error("Unknown boundary condition type " +
                                     std::to_string(static_cast<int>(bdyInfo.type)) +
@@ -290,6 +295,75 @@ public:
                 2.0 * (eff_sModulus / normDist) * disp
                 - weightAvg * (faceNormalNeg * rotPos - faceNormalPos * rotNeg)
                 - faceNormalDir * weightAvg * solidP;
+        }
+    }
+
+    /*!
+    * \brief Calculate free (or zero traction) boundary condition in TPSA formulation
+    *
+    * \param bndryTerm Boundary term vector
+    * \param materialState Material state container
+    * \param bdyInfo Boundary condition info container
+    * \param problem Flow problem
+    * \param globalIndex Cell index
+    *
+    * \note Free, or zero traction, BC is equivalent of having a spring at infinity where we have assumed all (primary)
+    * variables and parameters (e.g., shear modulus) are zero.
+    */
+    template <class BoundaryConditionData>
+    static void computeBoundaryTermFree(Dune::FieldVector<Evaluation, numEq>& bndryTerm,
+                                        const MaterialState& materialState,
+                                        const BoundaryConditionData& bdyInfo,
+                                        Problem& problem,
+                                        unsigned globalIndex)
+    {
+        // Reset bondary term
+        bndryTerm = 0.0;
+
+        // Face properties
+        const unsigned bfIdx = bdyInfo.boundaryFaceIndex;
+        const Scalar weightAvg = 1.0;
+        const Scalar normDist = problem.normalDistanceBoundary(globalIndex, bfIdx);
+        const auto& faceNormal = problem.cellFaceNormalBoundary(globalIndex, bfIdx);
+
+        const Scalar sModulus = problem.shearModulus(globalIndex);
+
+        // ///
+        // Solid pressure equation (direction-independent equation)
+        // ///
+        const Evaluation& solidP = materialState.solidPressure();
+        bndryTerm[contiSolidPresEqIdx] +=
+            0.5 * (normDist / sModulus) * solidP;
+
+        // ///
+        // Rotation and solid pressure (directional-dependent) equations
+        // ///
+        // Lambda function for computing modulo 3 of possibly negative integers to get indices in cross product.
+        // E.g. if i = x-dir(=0), we want y-dir(=1) and z-dir(=2), hence -1 mod 3 must equal 2 and not -1
+        auto modNeg = [](int i) { return ((i % 3) + 3) % 3; };
+
+        // Loop over x-, y- and z-dir (corresponding to dirIdx = 0, 1, 2)
+        for (int dirIdx = 0; dirIdx < 3; ++dirIdx) {
+            // Direction indices in cross-product
+            unsigned dirIdxNeg = modNeg(dirIdx - 1);
+            unsigned dirIdxPos = modNeg(dirIdx + 1);
+
+            // Rotation equation
+            const Scalar faceNormalNeg = faceNormal[dirIdxNeg];
+            const Scalar faceNormalPos = faceNormal[dirIdxPos];
+
+            const Evaluation& dispNeg = materialState.displacement(dirIdxNeg);
+            const Evaluation& dispPos = materialState.displacement(dirIdxPos);
+
+            bndryTerm[contiRotEqIdx + dirIdx] +=
+                - weightAvg * (faceNormalNeg * dispPos - faceNormalPos * dispNeg);
+
+            // Solid pressure (directional-dependent) equation
+            const Scalar faceNormalDir = faceNormal[dirIdx];
+            const Evaluation& disp = materialState.displacement(dirIdx);
+
+            bndryTerm[contiSolidPresEqIdx] +=
+                - faceNormalDir * weightAvg * disp;
         }
     }
 

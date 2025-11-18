@@ -31,6 +31,8 @@
 
 #include <opm/common/OpmLog/OpmLog.hpp>
 
+#include <opm/input/eclipse/EclipseState/Grid/FaceDir.hpp>
+
 #include <opm/material/common/MathToolbox.hpp>
 
 #include <opm/models/utils/parametersystem.hpp>
@@ -236,15 +238,52 @@ public:
     }
 
     /*!
+    * \brief Called by the simulator before each time integration.
+    */
+    void beginTimeStep() override
+    {
+        // Call parent class beginTimeStep()
+        ParentType::beginTimeStep();
+
+        // Update mechanics boundary conditions.
+        // NOTE: Flow boundary conditions should be updated in ParentType::beginTimeStep()
+        if (this->nonTrivialBoundaryConditions()) {
+            geoMechModel_.linearizer().updateBoundaryConditionData();
+        }
+    }
+
+    /*!
     * \brief Organize mechanics boundary conditions
     *
     * \param globalSpaceIdx Cell index
     * \param directionId Direction id
+    *
+    * \note Only BCMECHTYPE = FREE and NONE implemented. FIXED will/should throw an error when computed in local
+    * residual!
     */
     std::pair<BCMECHType, Dune::FieldVector<Evaluation, 3>>
     mechBoundaryCondition(const unsigned int globalSpaceIdx, const int directionId)
     {
-        return { BCMECHType::NONE, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        // Default boundary conditions if BCCON/BCPROP not defined
+        if (!this->nonTrivialBoundaryConditions()) {
+            return { BCMECHType::NONE, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        }
+
+        // Default for BCPROP index = 0 or no BCPROP defined at current episode
+        FaceDir::DirEnum dir = FaceDir::FromIntersectionIndex(directionId);
+        const auto& schedule = this->simulator().vanguard().schedule();
+        if (this->bcindex_(dir)[globalSpaceIdx] == 0 || schedule[this->episodeIndex()].bcprop.size() == 0) {
+            return { BCMECHType::NONE, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        }
+
+        // Get current BC
+        const auto& bc = schedule[this->episodeIndex()].bcprop[this->bcindex_(dir)[globalSpaceIdx]];
+        if (bc.bcmechtype == BCMECHType::FREE) {
+            return { BCMECHType::FREE, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        }
+        else {
+            return { bc.bcmechtype, Dune::FieldVector<Evaluation, 3>{0.0, 0.0, 0.0} };
+        }
     }
 
     /*!
