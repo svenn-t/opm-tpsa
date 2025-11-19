@@ -143,9 +143,6 @@ public:
         // FlowProblemBlackoil::finishInit()
         ParentType::finishInit();
 
-        // Read rock parameters
-        readTpsaRockParameters_();
-
         // Read initial conditions and set material state
         readInitalConditionsTPSA_();
 
@@ -472,24 +469,6 @@ protected:
     // ///
     // Protected functions
     // ///
-    /*!
-    * \brief Read rock parameters for TPSA model
-    */
-    void readTpsaRockParameters_()
-    {
-        // Biot coefficient
-        const auto& fp = this->simulator().vanguard().eclState().fieldProps();
-        if (fp.has_double("BIOTCOEF")) {
-            biotcoeff_ = this->fieldPropDoubleOnLeafAssigner_()(fp, "BIOTCOEF");
-        }
-        else{
-            // TODO: Convert from other parameters
-            std::string msg = "BIOTCOEF required in TPSA";
-            OpmLog::error(msg);
-            throw std::runtime_error(msg);
-        }
-    }
-
     /*!
     * \brief Read initial conditions and generate material state for TPSA model
     */
