@@ -25,11 +25,6 @@
 #ifndef TPSA_NEWTON_METHOD_HPP
 #define TPSA_NEWTON_METHOD_HPP
 
-#include <dune/istl/operators.hh>
-#include <dune/istl/preconditioners.hh>
-#include <dune/istl/schwarz.hh>
-#include <dune/istl/solvers.hh>
-
 #include <opm/common/Exceptions.hpp>
 
 #include <opm/simulators/tpsa/tpsanewtonmethodparams.hpp>
@@ -66,6 +61,7 @@ class TpsaNewtonMethod
     using Constraints = GetPropType<TypeTag, Properties::Constraints>;
     using EqVector = GetPropType<TypeTag, Properties::EqVectorTPSA>;
     using Linearizer = GetPropType<TypeTag, Properties::LinearizerTPSA>;
+    using LinearSolverBackend = GetPropType<TypeTag, Properties::LinearSolverBackendTPSA>;
     using ConvergenceWriter = GetPropType<TypeTag, Properties::NewtonConvergenceWriterTPSA>;
     using SparseMatrixAdapter = GetPropType<TypeTag, Properties::SparseMatrixAdapterTPSA>;
 
@@ -79,6 +75,7 @@ public:
     */
     explicit TpsaNewtonMethod(Simulator& simulator)
         : simulator_(simulator)
+        , linearSolver_(simulator)
         , error_(1e100)
         , lastError_(1e100)
         , numIterations_(0)
@@ -93,6 +90,7 @@ public:
     */
     static void registerParameters()
     {
+        LinearSolverBackend::registerParameters();
         TpsaNewtonMethodParams<Scalar>::registerParameters();
     }
 
@@ -152,10 +150,12 @@ public:
                 linearizeAuxiliaryEquations_();
                 linearizeTimer_.stop();
 
-                // Get residual and Jacobian for convergence check and linear solver
+                // Get residual and Jacobian for convergence check and preparation of linear solver
                 solveTimer_.start();
                 auto& residual = linearizer.residual();
                 const auto& jacobian = linearizer.jacobian();
+                linearSolver_.prepare(jacobian, residual);
+                linearSolver_.getResidual(residual);
                 solveTimer_.stop();
 
                 // The preSolve_() method usually computes the errors, but it can do something else in addition.
@@ -176,7 +176,7 @@ public:
                 // Solve A x = b, where b is the residual, A is its Jacobian and x is the update of the solution
                 solveTimer_.start();
                 solutionUpdate = 0.0;
-                const bool conv = solveLinearSystem(jacobian.istlMatrix(), solutionUpdate, residual);
+                const bool conv = linearSolver_.solve(solutionUpdate);
                 solveTimer_.stop();
 
                 if (!conv) {
@@ -329,6 +329,18 @@ public:
     */
     const Model& model() const
     { return simulator_.problem().geoMechModel(); }
+
+    /*!
+    * \brief Returns the linear solver backend object for external use.
+    */
+    LinearSolverBackend& linearSolver()
+    { return linearSolver_; }
+
+    /*!
+    * \brief Returns the linear solver backend object for external use.
+    */
+    const LinearSolverBackend& linearSolver() const
+    { return linearSolver_; }
 
     /*!
     * \brief Returns the number of iterations done since the Newton method was invoked.
@@ -681,74 +693,8 @@ protected:
     static bool enableConstraints_()
     { return getPropValue<TypeTag, Properties::EnableConstraintsTPSA>(); }
 
-    /*!
-    * \brief Setup linear solver for TPSA system
-    *
-    * \note The following code has been copied from GenericTracerModel_impl.hpp!
-    */
-    bool solveLinearSystem(const IstlMatrix& M, GlobalEqVector& x, GlobalEqVector& b)
-    {
-        // Set parameters
-        Scalar tolerance = 1e-8;
-        int maxIter = 100;
-        int verbosity = 0;
-
-#if HAVE_MPI
-    if (simulator_.gridView().grid().comm().size() > 1) {
-            // Setup property system
-            PropertyTree prm;
-            prm.put("maxiter", maxIter);
-            prm.put("tol", tolerance);
-            prm.put("verbosity", verbosity);
-            prm.put("solver", std::string("bicgstab"));
-            prm.put("preconditioner.type", std::string("paroverilu0"));
-
-            // Setup parallel linear solver
-            using Comm = Dune::OwnerOverlapCopyCommunication<int, int>;
-            using ParOperator =
-                Dune::OverlappingSchwarzOperator<IstlMatrix, GlobalEqVector, GlobalEqVector, Comm>;
-            using ParSolver = Dune::FlexibleSolver<ParOperator>;
-
-            const auto& cellComm = simulator_.gridView().grid().cellCommunication();
-            auto op = std::make_unique<ParOperator>(M, cellComm);
-            auto dummyWeights = [](){ return GlobalEqVector(); };
-            auto solver = std::make_unique<ParSolver>(*op, cellComm, prm, dummyWeights, 0);
-
-            // Solve linear system
-            Dune::InverseOperatorResult result;
-            solver->apply(x, b, result);
-
-            return result.converged;
-        }
-        else
-#endif
-        {
-            // Setup linear solver
-            using Solver = Dune::BiCGSTABSolver<GlobalEqVector>;
-            using Operator = Dune::MatrixAdapter<IstlMatrix, GlobalEqVector, GlobalEqVector>;
-            using ScalarProduct = Dune::SeqScalarProduct<GlobalEqVector>;
-            using Preconditioner = Dune::SeqILU<IstlMatrix, GlobalEqVector, GlobalEqVector>;
-
-            Operator linOperator(M);
-            ScalarProduct linScalarProduct;
-            Preconditioner linPreconditioner(M, 0, 1);  // = ILU0
-
-            Solver solver(linOperator,
-                          linScalarProduct,
-                          linPreconditioner,
-                          tolerance,
-                          maxIter,
-                          verbosity);
-
-            // Solve linear system
-            Dune::InverseOperatorResult result;
-            solver.apply(x, b, result);
-
-            return result.converged;
-        }
-    }
-
     Simulator& simulator_;
+    LinearSolverBackend linearSolver_;
 
     Timer prePostProcessTimer_;
     Timer linearizeTimer_;
@@ -759,10 +705,8 @@ protected:
     Scalar lastError_;
     TpsaNewtonMethodParams<Scalar> params_;
 
-    // Actual number of iterations done so far
     int numIterations_;
 
-    // The object which writes the convergence behaviour of the Newton method to disk
     ConvergenceWriter convergenceWriter_;
 };  // class TpsaNewtonMethod
 

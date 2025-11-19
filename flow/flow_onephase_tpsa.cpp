@@ -31,12 +31,12 @@
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 #include <opm/simulators/linalg/istlsparsematrixadapter.hh>
-#include <opm/simulators/linalg/parallelbicgstabbackend.hh>
 #include <opm/simulators/tpsa/BlackOilModelTPSA.hpp>
 #include <opm/simulators/tpsa/elasticityindices.hpp>
 #include <opm/simulators/tpsa/elasticitylocalresidualtpsa.hpp>
 #include <opm/simulators/tpsa/elasticityprimaryvariables.hpp>
 #include <opm/simulators/tpsa/FlowProblemTPSA.hpp>
+#include <opm/simulators/tpsa/ISTLSolverTPSA.hpp>
 #include <opm/simulators/tpsa/tpsabaseproperties.hpp>
 #include <opm/simulators/tpsa/tpsalinearizer.hpp>
 #include <opm/simulators/tpsa/tpsamodel.hpp>
@@ -201,6 +201,11 @@ public:
 template<class TypeTag>
 struct EnableConstraintsTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
 { static constexpr bool value = false; };
+
+// Set linear solver backend
+template<class TypeTag>
+struct LinearSolverBackendTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
+{ using type = ISTLSolverTPSA<TypeTag>; };
 
 }  // namespace Opm::Properties
 

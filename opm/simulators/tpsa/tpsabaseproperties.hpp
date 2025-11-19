@@ -78,6 +78,9 @@ struct ConvergenceWriterTPSA { using type = UndefinedProperty; };
 template<class TypeTag, class MyTypeTag>
 struct EnableConstraintsTPSA { using type = UndefinedProperty; };
 
+template<class TypeTag, class MyTypeTag>
+struct LinearSolverBackendTPSA { using type = UndefinedProperty; };
+
 }  // namespace Opm::Properties
 
 #endif
