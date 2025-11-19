@@ -532,30 +532,30 @@ extractSModulus_()
     std::vector<double> sModulusData;
     if (fp.has_double("SMODULUS")) {
         sModulusData = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
-
     }
     else if (fp.has_double("YMODULE") && fp.has_double("LAME")) {
         // Convert from Young's modulus and Lame's first parameter
         const std::vector<double>& ymodulus = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "YMODULE");
         const std::vector<double>& lameParam = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "LAME");
+        sModulusData.resize(numElem);
         for (std::size_t i = 0; i < sModulusData.size(); ++i) {
             const double r = std::sqrt(ymodulus[i] * ymodulus[i] + 9 * lameParam[i] * lameParam[i]
                                        + 2 * ymodulus[i] * lameParam[i]);
             sModulusData[i] = (ymodulus[i] - 3 * lameParam[i] + r) / 4.0;
         }
     }
-    else if (fp.has_double("YMODULE") && fp.has_double("PRATIO"))
-    {
+    else if (fp.has_double("YMODULE") && fp.has_double("PRATIO")) {
         const std::vector<double>& ymodulus = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "YMODULE");
         const std::vector<double>& pratio = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "PRATIO");
+        sModulusData.resize(numElem);
         for (std::size_t i = 0; i < sModulusData.size(); ++i) {
             sModulusData[i] = ymodulus[i] / (2 * (1 + pratio[i]));
         }
     }
-    else if (fp.has_double("LAME") && fp.has_double("PRATIO"))
-    {
+    else if (fp.has_double("LAME") && fp.has_double("PRATIO")) {
         const std::vector<double>& lameParam = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "LAME");
         const std::vector<double>& pratio = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "PRATIO");
+        sModulusData.resize(numElem);
         for (std::size_t i = 0; i < sModulusData.size(); ++i) {
             sModulusData[i] = lameParam[i] * (1 - 2 * pratio[i]) / (2 * pratio[i]);
         }
