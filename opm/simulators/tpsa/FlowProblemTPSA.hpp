@@ -218,7 +218,7 @@ public:
         for(const auto& elem: elements(gridView, Dune::Partitions::interior)) {
             elemCtx.updatePrimaryStencil(elem);
             int elemIdx = elemCtx.globalSpaceIndex(/*spaceIdx=*/0, /*timeIdx=*/0);
-            avgSmodulus += lame(elemIdx);
+            avgSmodulus += this->lame(elemIdx);
         }
         std::size_t numDof = this->model().numGridDof();
         const auto& comm = this->simulator().vanguard().grid().comm();
@@ -300,8 +300,8 @@ public:
         sourceTerm = 0.0;
 
         // Coupling term Flow -> TPSA
-        const auto biot = biotCoeff(globalSpaceIdx);
-        const auto lameParam = lame(globalSpaceIdx);
+        const auto biot = this->biotCoeff(globalSpaceIdx);
+        const auto lameParam = this->lame(globalSpaceIdx);
 
         const auto& iq = this->model().intensiveQuantities(globalSpaceIdx, 0);
         const auto& fs = iq.fluidState();
@@ -328,8 +328,8 @@ public:
 
         // Coupling term TPSA -> Flow
         // TODO: get prevSolidPres from a cached materialState (or intensiveQuantities) if/when implemented
-        const auto biot = biotCoeff(globalDofIdx);
-        const auto lameParam = lame(globalDofIdx);
+        const auto biot = this->biotCoeff(globalDofIdx);
+        const auto lameParam = this->lame(globalDofIdx);
         const auto& ms = geoMechModel_.materialState(globalDofIdx, 0);
         const auto solidPres = decay<Scalar>(ms.solidPressure());
         const auto prevSolidPres = geoMechModel_.solution(/*timeIdx=*/1)[globalDofIdx][solidPres0Idx];
@@ -434,30 +434,6 @@ public:
     Scalar shearModulus(unsigned globalElemIdx) const
     {
         return faceProps_.shearModulus(globalElemIdx);
-    }
-
-    /*!
-    * \brief Direct access to Lame's second parameter in an element
-    *
-    * \param globalElemIdx Cell index
-    *
-    * \note: Might/should be moved up the hierarchy
-    */
-    Scalar lame(unsigned globalElemIdx) const
-    {
-        return this->lookUpData_.fieldPropDouble(this->eclState_.fieldProps(), "LAME", globalElemIdx);
-    }
-
-    /*!
-    * \brief Direct access to Biot coefficient in an element
-    *
-    * \param globalElemIdx Cell index
-    *
-    * \note: Might/should be moved up the hierarchy
-    */
-    Scalar biotCoeff(unsigned globalElemIdx) const
-    {
-        return this->lookUpData_.fieldPropDouble(this->eclState_.fieldProps(), "BIOTCOEF", globalElemIdx);
     }
 
     /*!
