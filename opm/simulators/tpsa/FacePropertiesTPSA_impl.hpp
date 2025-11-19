@@ -529,14 +529,46 @@ extractSModulus_()
     sModulus_.resize(numElem);
 
     const auto& fp = eclState_.fieldProps();
+    std::vector<double> sModulusData;
     if (fp.has_double("SMODULUS")) {
-        const std::vector<double>& sModulusData = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
-        for (std::size_t dofIdx = 0; dofIdx < numElem; ++ dofIdx) {
-            sModulus_[dofIdx] = sModulusData[dofIdx];
+        sModulusData = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "SMODULUS");
+
+    }
+    else if (fp.has_double("YMODULE") && fp.has_double("LAME")) {
+        // Convert from Young's modulus and Lame's first parameter
+        const std::vector<double>& ymodulus = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "YMODULE");
+        const std::vector<double>& lameParam = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "LAME");
+        for (std::size_t i = 0; i < sModulusData.size(); ++i) {
+            const double r = std::sqrt(ymodulus[i] * ymodulus[i] + 9 * lameParam[i] * lameParam[i]
+                                       + 2 * ymodulus[i] * lameParam[i]);
+            sModulusData[i] = (ymodulus[i] - 3 * lameParam[i] + r) / 4.0;
+        }
+    }
+    else if (fp.has_double("YMODULE") && fp.has_double("PRATIO"))
+    {
+        const std::vector<double>& ymodulus = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "YMODULE");
+        const std::vector<double>& pratio = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "PRATIO");
+        for (std::size_t i = 0; i < sModulusData.size(); ++i) {
+            sModulusData[i] = ymodulus[i] / (2 * (1 + pratio[i]));
+        }
+    }
+    else if (fp.has_double("LAME") && fp.has_double("PRATIO"))
+    {
+        const std::vector<double>& lameParam = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "LAME");
+        const std::vector<double>& pratio = this->lookUpData_.assignFieldPropsDoubleOnLeaf(fp, "PRATIO");
+        for (std::size_t i = 0; i < sModulusData.size(); ++i) {
+            sModulusData[i] = lameParam[i] * (1 - 2 * pratio[i]) / (2 * pratio[i]);
         }
     }
     else {
-        throw std::logic_error("Cannot read shear modulus data from ecl state, SMODULUS keyword missing!");
+        throw std::logic_error("Cannot read shear modulus data from ecl state, SMODULUS keyword missing, "
+                               "and one of the following keyword pairs are missing for conversion: "
+                               "(YMODULE, LAME), (YMODULE, PRATIO) and (LAME, PRATIO)!");
+    }
+
+    // Assign shear modulus
+    for (std::size_t dofIdx = 0; dofIdx < numElem; ++ dofIdx) {
+        sModulus_[dofIdx] = sModulusData[dofIdx];
     }
 }
 
