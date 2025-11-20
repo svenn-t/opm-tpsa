@@ -37,8 +37,8 @@
 #include <opm/simulators/linalg/ExtractParallelGridInformationToISTL.hpp>
 #include <opm/simulators/linalg/ISTLSolver.hpp>
 #include <opm/simulators/linalg/PropertyTree.hpp>
-#include <opm/simulators/linalg/setupPropertyTree.hpp>
 #include <opm/simulators/linalg/WriteSystemMatrixHelper.hpp>
+#include <opm/simulators/tpsa/setupPropertyTreeTPSA.hpp>
 #include <opm/simulators/tpsa/TPSALinearSolverParameters.hpp>
 #include <opm/simulators/tpsa/tpsabaseproperties.hpp>
 
@@ -112,9 +112,7 @@ public:
     void initialize()
     {
         // Setup property tree for FlexibleSolver
-        prm_ = setupPropertyTree(parameters_,
-                                 Parameters::IsSet<Parameters::TpsaLinearSolverMaxIter>(),
-                                 Parameters::IsSet<Parameters::LinearSolverReduction>());
+        prm_ = setupPropertyTreeTPSA(parameters_);
 
         // Reset comm_ pointer
 #if HAVE_MPI

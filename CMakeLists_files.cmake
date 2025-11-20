@@ -23,6 +23,7 @@ list (APPEND MAIN_SOURCE_FILES
   opm/simulators/tpsa/FacePropertiesTPSA.cpp
   opm/simulators/tpsa/FlexibleSolver7.cpp
   opm/simulators/tpsa/PreconditionerFactory7.cpp
+  opm/simulators/tpsa/setupPropertyTreeTPSA.cpp
   opm/simulators/tpsa/TPSALinearSolverParameters.cpp
   opm/simulators/tpsa/tpsanewtonmethodparams.cpp
 )
@@ -37,6 +38,7 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/tpsa/FlowProblemTPSA.hpp
   opm/simulators/tpsa/ISTLSolverTPSA.hpp
   opm/simulators/tpsa/MaterialState.hpp
+  opm/simulators/tpsa/setupPropertyTreeTPSA.hpp
   opm/simulators/tpsa/tpsabaseproperties.hpp
   opm/simulators/tpsa/tpsalinearizer.hpp
   opm/simulators/tpsa/TPSALinearSolverParameters.hpp
