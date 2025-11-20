@@ -46,4 +46,5 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/tpsa/tpsanewtonconvergencewriter.hpp
   opm/simulators/tpsa/tpsanewtonmethod.hpp
   opm/simulators/tpsa/tpsanewtonmethodparams.hpp
+  opm/simulators/tpsa/TTagFlowProblemTpsa.hpp
 )

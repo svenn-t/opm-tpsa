@@ -1,3 +1,5 @@
+// -*- mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+// vi: set et ts=4 sw=4 sts=4:
 /*
   Copyright 2025, NORCE AS
 
@@ -18,45 +20,32 @@
 */
 #include "config.h"
 
-#include <dune/common/fvector.hh>
-#include <dune/istl/bvector.hh>
-
-#include <opm/material/densead/Evaluation.hpp>
-
 #include <opm/models/blackoil/blackoilonephaseindices.hh>
 #include <opm/models/blackoil/blackoillocalresidualtpfa.hh>
 #include <opm/models/discretization/common/tpfalinearizer.hh>
 
-#include <opm/simulators/flow/FlowProblem.hpp>
+#include <opm/simulators/flow/BlackoilModelProperties.hpp>
 #include <opm/simulators/flow/Main.hpp>
-#include <opm/simulators/linalg/matrixblock.hh>
-#include <opm/simulators/linalg/istlsparsematrixadapter.hh>
-#include <opm/simulators/tpsa/BlackOilModelTPSA.hpp>
-#include <opm/simulators/tpsa/elasticityindices.hpp>
-#include <opm/simulators/tpsa/elasticitylocalresidualtpsa.hpp>
-#include <opm/simulators/tpsa/elasticityprimaryvariables.hpp>
-#include <opm/simulators/tpsa/FlowProblemTPSA.hpp>
-#include <opm/simulators/tpsa/ISTLSolverTPSA.hpp>
-#include <opm/simulators/tpsa/tpsabaseproperties.hpp>
-#include <opm/simulators/tpsa/tpsalinearizer.hpp>
-#include <opm/simulators/tpsa/tpsamodel.hpp>
-#include <opm/simulators/tpsa/tpsanewtonmethod.hpp>
-#include <opm/simulators/tpsa/tpsanewtonconvergencewriter.hpp>
+
+#include <opm/simulators/tpsa/TTagFlowProblemTpsa.hpp>
+
+#include <tuple>
 
 
-namespace Opm {
+namespace Opm::Properties {
 
-namespace Properties {
-
-// ///
-// Flow Properties
-// ///
 namespace TTag {
-struct FlowWaterOnlyProblemTPSA {
-    using InheritsFrom = std::tuple<FlowProblem>;
-};
-}
 
+struct FlowWaterOnlyProblemTPSA
+{
+    using InheritsFrom = std::tuple<FlowProblem, FlowProblemTpsa>;
+};
+
+}  // namespace Opm::Properties::TTag
+
+// ///
+// Flow related properties
+// ///
 template<class TypeTag>
 struct Linearizer<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
 { using type = TpfaLinearizer<TypeTag>; };
@@ -68,18 +57,6 @@ struct LocalResidual<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
 template<class TypeTag>
 struct EnableDiffusion<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
 { static constexpr bool value = false; };
-
-template <class TypeTag>
-struct EnableMech<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ static constexpr bool value = true; };
-
-template <class TypeTag>
-struct Problem<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = FlowProblemTPSA<TypeTag>; };
-
-template <class TypeTag>
-struct NonlinearSystem<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = BlackoilModelTPSA<TypeTag>; };
 
 template<class TypeTag>
 struct Indices<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
@@ -104,112 +81,21 @@ public:
 };
 
 // ///
-// TPSA Properties
+// TPSA related properties
 // ///
-// TPSA indices for primary variables and equations
-template<class TypeTag>
-struct IndicesTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{
-    using type = ElasticityIndices</*PVOffset=*/0>;
-};
+template <class TypeTag>
+struct EnableMech<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
+{ static constexpr bool value = true; };
 
-// Number of TPSA equations
-template<class TypeTag>
-struct NumEqTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ static constexpr int value = GetPropType<TypeTag, Properties::IndicesTPSA>::numEq; };
+template <class TypeTag>
+struct Problem<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
+{ using type = FlowProblemTPSA<TypeTag>; };
 
-// TPSA linearizer
-template<class TypeTag>
-struct LinearizerTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = TpsaLinearizer<TypeTag>; };
-
-// Set the function evaluation w.r.t. the TPSA primary variables
-template<class TypeTag>
-struct EvaluationTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{
-private:
-    static constexpr unsigned numEq = getPropValue<TypeTag, Properties::NumEqTPSA>();
-
-    using Scalar = GetPropType<TypeTag, Scalar>;
-
-public:
-    using type = DenseAd::Evaluation<Scalar, numEq>;
-};
-
-// TPSA Equation vector
-template<class TypeTag>
-struct EqVectorTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{
-    using type = Dune::FieldVector<GetPropType<TypeTag, Scalar>,
-                                   getPropValue<TypeTag, Properties::NumEqTPSA>()>;
-};
-
-// Global TPSA equation vector
-template<class TypeTag>
-struct GlobalEqVectorTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = Dune::BlockVector<GetPropType<TypeTag, Properties::EqVectorTPSA>>; };
-
-// TPSA Newton method
-template<class TypeTag>
-struct NewtonMethodTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = TpsaNewtonMethod<TypeTag>; };
-
-template<class TypeTag>
-struct NewtonConvergenceWriterTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = TpsaNewtonConvergenceWriter<TypeTag>; };
-
-// TPSA primary variables
-template<class TypeTag>
-struct PrimaryVariablesTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = ElasticityPrimaryVariables<TypeTag>; };
-
-// TPSA solution vector
-template<class TypeTag>
-struct SolutionVectorTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = Dune::BlockVector<GetPropType<TypeTag, Properties::PrimaryVariablesTPSA>>; };
-
-// TPSA number of historic solutions to save
-template<class TypeTag>
-struct SolutionHistorySizeTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ static constexpr int value = 2; };
-
-// TPSA model
-template<class TypeTag>
-struct ModelTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = TpsaModel<TypeTag>; };
-
-// TPSA local residual
-template<class TypeTag>
-struct LocalResidualTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = ElasticityLocalResidual<TypeTag>; };
-
-// TPSA sparse matrix adapter for Jacobian
-template<class TypeTag>
-struct SparseMatrixAdapterTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{
-private:
-    using Scalar = GetPropType<TypeTag, Scalar>;
-    enum { numEq = getPropValue<TypeTag, Properties::NumEqTPSA>() };
-    using Block = MatrixBlock<Scalar, numEq, numEq>;
-
-public:
-    using type = typename Linear::IstlSparseMatrixAdapter<Block>;
-
-};
-
-// Disable constraints in Newton method
-template<class TypeTag>
-struct EnableConstraintsTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ static constexpr bool value = false; };
-
-// Set linear solver backend
-template<class TypeTag>
-struct LinearSolverBackendTPSA<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
-{ using type = ISTLSolverTPSA<TypeTag>; };
+template <class TypeTag>
+struct NonlinearSystem<TypeTag, TTag::FlowWaterOnlyProblemTPSA>
+{ using type = BlackoilModelTPSA<TypeTag>; };
 
 }  // namespace Opm::Properties
-
-}  // namespace Opm
 
 int main(int argc, char** argv)
 {
