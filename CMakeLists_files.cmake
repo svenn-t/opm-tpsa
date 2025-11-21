@@ -26,6 +26,7 @@ list (APPEND MAIN_SOURCE_FILES
   opm/simulators/tpsa/setupPropertyTreeTPSA.cpp
   opm/simulators/tpsa/TPSALinearSolverParameters.cpp
   opm/simulators/tpsa/tpsanewtonmethodparams.cpp
+  opm/simulators/tpsa/vtktpsaparams.cpp
 )
 
 list (APPEND PUBLIC_HEADER_FILES
@@ -47,4 +48,6 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/tpsa/tpsanewtonmethod.hpp
   opm/simulators/tpsa/tpsanewtonmethodparams.hpp
   opm/simulators/tpsa/TTagFlowProblemTpsa.hpp
+  opm/simulators/tpsa/vtktpsamodule.hpp
+  opm/simulators/tpsa/vtktpsaparams.hpp
 )

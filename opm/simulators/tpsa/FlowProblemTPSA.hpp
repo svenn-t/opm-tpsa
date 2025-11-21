@@ -42,7 +42,9 @@
 #include <opm/simulators/tpsa/MaterialState.hpp>
 #include <opm/simulators/tpsa/tpsabaseproperties.hpp>
 #include <opm/simulators/tpsa/tpsamodel.hpp>
+#include <opm/simulators/tpsa/vtktpsamodule.hpp>
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -85,6 +87,7 @@ public:
     using Simulator = GetPropType<TypeTag, Properties::Simulator>;
 
     enum { dimWorld = GridView::dimensionworld };
+    enum { enableMech = getPropValue<TypeTag, Properties::EnableMech>() };
     enum { historySize = getPropValue<TypeTag, Properties::SolutionHistorySizeTPSA>() };
     enum { numEq = getPropValue<TypeTag, Properties::NumEqTPSA>() };
     enum { numPhases = FluidSystem::numPhases };
@@ -113,7 +116,12 @@ public:
                      simulator.vanguard().grid(),
                      simulator.vanguard().cellCentroids())
         , geoMechModel_(simulator)
-    { }
+    {
+        // Add VTK TPSA to output module
+        if constexpr(enableMech) {
+            this->model().addOutputModule(std::make_unique<VtkTpsaModule<TypeTag>>(simulator));
+        }
+    }
 
     /*!
     * \brief Register runtime parameters
@@ -125,6 +133,9 @@ public:
 
         // Geomech model parameters
         GeomechModel::registerParameters();
+
+        // VTK output parameters
+        VtkTpsaModule<TypeTag>::registerParameters();
 
         // Register TPSA runtime parameters
         Parameters::Register<Parameters::TpsaCouplingScheme>
