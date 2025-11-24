@@ -321,37 +321,24 @@ public:
     }
 
     /*!
-    * \brief Set coupling term to Flow via source function
+    * \brief Pore volume change due to geomechanics
     *
-    * \param rate Source term vector
+    * \note This is the coupling term to Flow
+    *
     * \param globalDofIdx Cell index
     * \param timeIdx Time index
     */
-    void addToSourceDense(RateVector& rate,
-                          unsigned globalDofIdx,
-                          unsigned timeIdx) const override
+    Scalar rockMechPoroChange(unsigned elementIdx, unsigned timeIdx) const
     {
-        // Flow (non-well) source terms
-        ParentType::addToSourceDense(rate, globalDofIdx, timeIdx);
+        // TODO: get timeIdx=1 solid pressure from a cached materialState (or intensiveQuantities) if/when implemented
+        assert (timeIdx <= historySize);
+        const auto solidPres = (timeIdx == 0) ?
+           decay<Scalar>( geoMechModel_.materialState(elementIdx, /*timeIdx=*/timeIdx).solidPressure()) :
+           geoMechModel_.solution(/*timeIdx=*/timeIdx)[elementIdx][solidPres0Idx];
+        const auto biot = this->biotCoeff(elementIdx);
+        const auto lameParam = this->lame(elementIdx);
 
-        // Coupling term TPSA -> Flow
-        // TODO: get prevSolidPres from a cached materialState (or intensiveQuantities) if/when implemented
-        const auto biot = this->biotCoeff(globalDofIdx);
-        const auto lameParam = this->lame(globalDofIdx);
-        const auto& ms = geoMechModel_.materialState(globalDofIdx, 0);
-        const auto solidPres = decay<Scalar>(ms.solidPressure());
-        const auto prevSolidPres = geoMechModel_.solution(/*timeIdx=*/1)[globalDofIdx][solidPres0Idx];
-        Scalar dt = this->simulator().timeStepSize();
-        for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
-            if (phaseIdx != this->refPressurePhaseIdx_()) {
-                continue;
-            }
-
-            auto sourceFromTpsa = (-biot / lameParam) * (solidPres - prevSolidPres) / dt;
-            // TODO: Use canonicalToActivePhaseIdx() or canonicalToActiveCompIdx()???
-            rate[phaseIdx] += sourceFromTpsa;
-            break;
-        }
+        return(biot / lameParam) * solidPres;
     }
 
     // ///
