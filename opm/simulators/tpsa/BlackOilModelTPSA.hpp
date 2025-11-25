@@ -190,17 +190,16 @@ public:
         // Run Flow nonlinear iteration
         auto reportFlow = ParentType::nonlinearIteration(iteration, timer, nonlinear_solver);
 
-        // Update TPSA geomechanics from successful Flow iteration
-        if (reportFlow.converged) {
+        // Update TPSA geomechanics from successful Flow run
+        if (reportFlow.converged && iteration >= this->param_.newton_min_iter_) {
             // Prepare before TPSA solve
             this->simulator_.problem().geoMechModel().prepareTPSA();
 
             // Solve TPSA equations
-            bool TpsaConv = solveTpsaEquations();
+            bool tpsaConv = solveTpsaEquations();
 
-            // Throw error if TPSA does not converge
-            // TODO: more relaxed error handling
-            if (!TpsaConv) {
+            // Throw error if TPSA did not converge. Will force time step cuts in the outer Flow loop.
+            if (!tpsaConv) {
                 throw std::runtime_error("TPSA: Lagged scheme update failed!");
             }
         }
