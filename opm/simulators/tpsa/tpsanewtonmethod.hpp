@@ -79,6 +79,7 @@ public:
         , error_(1e100)
         , lastError_(1e100)
         , numIterations_(0)
+        , numLinearizations_(0)
         , convergenceWriter_()
     {
         // Read runtime/default Newton parameters
@@ -164,7 +165,8 @@ public:
                 preSolve_(currentSolution, residual);
                 updateTimer_.stop();
 
-                if (!proceed_()) {
+                // Check convergence criteria
+                if (converged()) {
                     // Tell the implementation that we're done with this iteration
                     prePostProcessTimer_.start();
                     endIteration_(nextSolution, currentSolution);
@@ -349,10 +351,22 @@ public:
     { return numIterations_; }
 
     /*!
+    * \brief Returns the number of iterations done since the Newton method was invoked.
+    */
+    int numLinearizations() const
+    { return numLinearizations_; }
+
+    /*!
     * \brief Return the current tolerance at which the Newton method considers itself to be converged.
     */
     Scalar tolerance() const
     { return params_.tolerance_; }
+
+    /*!
+    * \brief
+    */
+    Scalar minIterations() const
+    { return params_.minIterations_; }
 
     /*!
     * \brief Return post-process timer
@@ -393,6 +407,8 @@ protected:
     void begin_(const SolutionVector& /*nextSolution*/)
     {
         numIterations_ = 0;
+        numLinearizations_ = 0;
+        error_ = 1e100;
 
         if (params_.writeConvergence_) {
             convergenceWriter_.beginTimeStep();
@@ -413,8 +429,6 @@ protected:
             throw NumericalProblem("TPSA: Pre-processing of the problem failed!");
         }
 
-        // model().syncOverlap();
-
         lastError_ = error_;
     }
 
@@ -424,6 +438,7 @@ protected:
     void linearizeDomain_()
     {
         model().linearizer().linearizeDomain();
+        ++numLinearizations_;
     }
 
     /*!
@@ -642,8 +657,8 @@ protected:
     */
     bool proceed_() const
     {
-        if (numIterations() < 1) {
-            return true; // we always do at least one full iteration
+        if (numIterations() < params_.minIterations_) {
+            return true;
         }
         else if (converged()) {
             // we are below the specified tolerance, so we don't have to
@@ -706,6 +721,7 @@ protected:
     TpsaNewtonMethodParams<Scalar> params_;
 
     int numIterations_;
+    int numLinearizations_;
 
     ConvergenceWriter convergenceWriter_;
 };  // class TpsaNewtonMethod

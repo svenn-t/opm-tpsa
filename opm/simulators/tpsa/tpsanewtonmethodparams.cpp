@@ -45,6 +45,8 @@ void TpsaNewtonMethodParams<Scalar>::registerParameters()
         ("The 'optimum' number of Newton iterations per time step");
     Parameters::Register<Parameters::TpsaNewtonMaxIterations>
         ("The maximum number of Newton iterations per time step");
+    Parameters::Register<Parameters::TpsaNewtonMinIterations>
+        ("The minimum number of Newton iterations per time step");
     Parameters::Register<Parameters::TpsaNewtonTolerance<Scalar>>
         ("The maximum raw error tolerated by the TPSA Newton method for considering a solution to be converged");
     Parameters::Register<Parameters::TpsaNewtonMaxError<Scalar>>
@@ -60,6 +62,7 @@ void TpsaNewtonMethodParams<Scalar>::read()
     verbose_ = Parameters::Get<Parameters::TpsaNewtonVerbose>();
     writeConvergence_ = Parameters::Get<Parameters::TpsaNewtonWriteConvergence>();
     targetIterations_ = Parameters::Get<Parameters::TpsaNewtonTargetIterations>();
+    minIterations_ = Parameters::Get<Parameters::TpsaNewtonMinIterations>();
     maxIterations_ = Parameters::Get<Parameters::TpsaNewtonMaxIterations>();
     tolerance_ = Parameters::Get<Parameters::TpsaNewtonTolerance<Scalar>>();
     maxError_ = Parameters::Get<Parameters::TpsaNewtonMaxError<Scalar>>();
