@@ -106,6 +106,20 @@ public:
     {
         // Runtime parameters
         const auto& [minSeqIter, maxSeqIter] = this->simulator_.problem().fixedStressParameters();
+        SimulatorReportSingle reportFlow;
+
+        // Max. no. of fixed-stress iterations reached: warn and move on
+        if (seqIter_ >= maxSeqIter) {
+            // Warning
+            std::string msg = fmt::format("TPSA: Fixed-stress scheme reached max iterations (={})!", maxSeqIter);
+            OpmLog::warning(msg);
+
+            // Return true Flow convergence to move to next time step and reset other variables
+            reportFlow.converged = true;
+            seqIter_ = 0;
+
+            return reportFlow;
+        }
 
         // Prepare before first iteration
         if (seqIter_ == 0) {
@@ -113,62 +127,40 @@ public:
         }
 
         // Run Flow nonlinear iteration
-        auto reportFlow = ParentType::nonlinearIteration(iteration, timer, nonlinear_solver);
-        ++flowRuns_;
+        reportFlow = ParentType::nonlinearIteration(iteration, timer, nonlinear_solver);
 
         // Solve TPSA equations if:
-        // (i)   we have not done it at least once
-        // (ii)  Flow and TPSA has converged, but Flow has run more than min Newton iterations
-        // (iii) we have run less than min. number of fixed-stress iterations
-        if ( reportFlow.converged
-             && seqIter_ < maxSeqIter
-             && (!tpsaConv_ || flowRuns_ > this->param_.newton_min_iter_ || seqIter_ < minSeqIter) ) {
+        // (i)  Flow has converged and run more than min number of Newton iterations
+        // (ii) we have run at least min. number of fixed-stress iterations
+        if (reportFlow.converged && iteration >= this->param_.newton_min_iter_) {
             // Solve TPSA equations
-            tpsaConv_ = solveTpsaEquations();
+            bool tpsaConv = solveTpsaEquations();
+            ++seqIter_;
 
-            // Throw error if TPSA does not converge
-            // TODO: more relaxed error handling
-            if (!tpsaConv_) {
+            // Fixed-stress convergence check:
+            // If the initial residual error, hence no. linearizations = 1, was small enough, we have converged
+            if (tpsaConv
+                && this->simulator_.problem().geoMechModel().newtonMethod().numLinearizations() == 1
+                && seqIter_ >= minSeqIter) {
+                // Info
+                std::string msg = fmt::format("TPSA: Fixed-stress scheme converged in {} iterations", seqIter_);
+                OpmLog::info(msg);
+
+                // Reset
+                seqIter_ = 0;
+
+                return reportFlow;
+            }
+            // Throw error if TPSA did not converge. Will force time step cuts in the outer Flow loop.
+            else if (!tpsaConv) {
+                // Reset
+                seqIter_ = 0;
+
                 throw std::runtime_error("TPSA: Fixed stress scheme update failed!");
             }
 
-            // Reset Flow run parameters to run it at least once more
+            // Return Flow convergence false to do another fixed-stress iteration
             reportFlow.converged = false;
-            flowRuns_ = 0;
-            ++seqIter_;
-        }
-        // Successful convergence of fixed-stress iterations. Reset parameters for next time step.
-        else if ( reportFlow.converged
-                  && seqIter_ < maxSeqIter
-                  && tpsaConv_
-                  && flowRuns_ == this->param_.newton_min_iter_
-                  && seqIter_ >= minSeqIter ) {
-            // Info
-            std::string msg = fmt::format("TPSA: Fixed-stress scheme converged in {} iterations",
-                                          seqIter_);
-            OpmLog::info(msg);
-
-            // Reset
-            seqIter_ = 0;
-            flowRuns_ = 0;
-            tpsaConv_ = false;
-
-            return reportFlow;
-        }
-
-        // If we have run the iterative loop too many times, we write a warning and move on
-        if (seqIter_ >= maxSeqIter) {
-            // Info
-            std::string msg = fmt::format("TPSA: Fixed-stress scheme reached max iterations (={})!", maxSeqIter);
-            OpmLog::warning(msg);
-
-            // Reset
-            reportFlow.converged = true;
-            seqIter_ = 0;
-            flowRuns_ = 0;
-            tpsaConv_ = false;
-
-            return reportFlow;
         }
 
         return reportFlow;
@@ -220,8 +212,6 @@ public:
 
 private:
     unsigned seqIter_{0};
-    unsigned flowRuns_{0};
-    bool tpsaConv_{false};
 };  // class BlackoilModelTPSA
 
 }  // namespace Opm
