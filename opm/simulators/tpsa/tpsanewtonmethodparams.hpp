@@ -34,7 +34,7 @@ struct TpsaNewtonMaxError { static constexpr Scalar value = 1e100; };
 // Number of maximum iterations for the Newton method
 struct TpsaNewtonMaxIterations { static constexpr int value = 20; };
 
-// Number of maximum iterations for the Newton method
+// Number of minimum iterations for the Newton method
 struct TpsaNewtonMinIterations { static constexpr int value = 1; };
 
 // Target number of iterations

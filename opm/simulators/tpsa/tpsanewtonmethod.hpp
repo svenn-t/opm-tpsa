@@ -351,7 +351,7 @@ public:
     { return numIterations_; }
 
     /*!
-    * \brief Returns the number of iterations done since the Newton method was invoked.
+    * \brief Returns the number of linearizations that has done since the Newton method was invoked.
     */
     int numLinearizations() const
     { return numLinearizations_; }
@@ -363,7 +363,7 @@ public:
     { return params_.tolerance_; }
 
     /*!
-    * \brief
+    * \brief Returns minimum number of Newton iterations used
     */
     Scalar minIterations() const
     { return params_.minIterations_; }

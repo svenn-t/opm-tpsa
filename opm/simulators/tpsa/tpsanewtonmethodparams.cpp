@@ -42,11 +42,11 @@ void TpsaNewtonMethodParams<Scalar>::registerParameters()
     Parameters::Register<Parameters::TpsaNewtonWriteConvergence>
         ("Write the convergence behaviour of the TPSA Newton method to a VTK file");
     Parameters::Register<Parameters::TpsaNewtonTargetIterations>
-        ("The 'optimum' number of Newton iterations per time step");
+        ("The 'optimum' number of TPSA Newton iterations");
     Parameters::Register<Parameters::TpsaNewtonMaxIterations>
-        ("The maximum number of Newton iterations per time step");
+        ("The maximum number of TPSA Newton iterations");
     Parameters::Register<Parameters::TpsaNewtonMinIterations>
-        ("The minimum number of Newton iterations per time step");
+        ("The minimum number of TPSA Newton iterations");
     Parameters::Register<Parameters::TpsaNewtonTolerance<Scalar>>
         ("The maximum raw error tolerated by the TPSA Newton method for considering a solution to be converged");
     Parameters::Register<Parameters::TpsaNewtonMaxError<Scalar>>
