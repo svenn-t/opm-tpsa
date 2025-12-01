@@ -301,7 +301,7 @@ public:
     * \param globalSpaceIdx Cell index
     * \param timeIdx Time index
     */
-    void TpsaSource(Dune::FieldVector<Evaluation, numEq>& sourceTerm,
+    void tpsaSource(Dune::FieldVector<Evaluation, numEq>& sourceTerm,
                     unsigned globalSpaceIdx,
                     unsigned timeIdx)
     {

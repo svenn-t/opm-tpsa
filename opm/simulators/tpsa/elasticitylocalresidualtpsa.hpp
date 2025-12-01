@@ -385,7 +385,7 @@ public:
 
         // Get source term from problem
         // NOTE: separate source function than Flow source(...)!
-        problem.TpsaSource(sourceTerm, globalSpaceIdex, timeIdx);
+        problem.tpsaSource(sourceTerm, globalSpaceIdex, timeIdx);
     }
 };  // class ElasticityLocalResidual
 
