@@ -108,7 +108,7 @@ PropertyTree setupPropertyTreeTPSA(TpsaLinearSolverParameters p)
 
     // No valid configuration option found.
     std::string msg = fmt::format("No valid settings found for --tpsa-linear-solver={}! "
-                                  "Valid options are: ilu0, dilu, amg, or umfpack.", conf);
+                                  "Valid preset options are: ilu0, dilu, amg, or umfpack.", conf);
     OpmLog::error(msg);
     OPM_THROW(std::invalid_argument, msg);
 }

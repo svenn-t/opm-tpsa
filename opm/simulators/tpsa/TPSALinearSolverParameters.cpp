@@ -65,7 +65,7 @@ void TpsaLinearSolverParameters::registerParameters()
     Parameters::Register<Parameters::TpsaLinearSolverMaxIter>
         ("Maximum TPSA linear iterations");
     Parameters::Register<Parameters::TpsaLinearSolverRestart>
-        ("Number of iteration before restarting GMRES if --tpsa-use-gmres is true");
+        ("Number of iterations before restarting GMRES if --tpsa-use-gmres=true");
     Parameters::Register<Parameters::TpsaLinearSolverVerbosity>
         ("Level of verbosity in TPSA linear solver: 0 = off, 2 = all");
     Parameters::Register<Parameters::TpsaIluRelaxation>
@@ -77,7 +77,7 @@ void TpsaLinearSolverParameters::registerParameters()
     Parameters::Register<Parameters::TpsaLinearSolverIgnoreConvergenceFailure>
         ("Continue simulation even if TPSA linear solver did not converge");
     Parameters::Register<Parameters::TpsaLinearSolver>
-        ("Configuration of solver. Valid options are: ilu0, dilu, amg or hybrid (experimental). "
+        ("Configuration for linear solver. Valid preset options are: ilu0, dilu, amg or umfpack. "
          "Alternatively, you can request a configuration to be read from a JSON file by giving the filename here, "
          "ending with '.json.'");
     Parameters::Register<Parameters::TpsaLinearSolverPrintJsonDefinition>
