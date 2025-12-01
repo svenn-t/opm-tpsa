@@ -64,8 +64,6 @@ public:
     Scalar weightProductBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
     Scalar normalDistance(unsigned elemIdx1, unsigned elemIdx2) const;
     Scalar normalDistanceBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
-    Scalar cellFaceArea(unsigned elemIdx1, unsigned elemIdx2) const;
-    Scalar cellFaceAreaBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
     DimVector cellFaceNormal(unsigned elemIdx1, unsigned elemIdx2);
     const DimVector& cellFaceNormalBoundary(unsigned elemIdx1, unsigned boundaryFaceIdx) const;
 
@@ -80,7 +78,6 @@ protected:
     struct FaceInfo
     {
         DimVector faceCenter;
-        Scalar faceArea;
         int faceIdx;
         unsigned elemIdx;
         unsigned cartElemIdx;
@@ -112,13 +109,11 @@ protected:
     std::unordered_map<std::uint64_t, Scalar> weightsAvg_;
     std::unordered_map<std::uint64_t, Scalar> weightsProd_;
     std::unordered_map<std::uint64_t, Scalar> distance_;
-    std::unordered_map<std::uint64_t, Scalar> faceArea_;
     std::unordered_map<std::uint64_t, DimVector> faceNormal_;
 
     std::map<std::pair<unsigned, unsigned>, Scalar> weightsAvgBoundary_;
     std::map<std::pair<unsigned, unsigned>, Scalar> weightsProdBoundary_;
     std::map<std::pair<unsigned, unsigned>, Scalar> distanceBoundary_;
-    std::map<std::pair<unsigned, unsigned>, Scalar> faceAreaBoundary_;
     std::map<std::pair<unsigned, unsigned>, DimVector> faceNormalBoundary_;
 
     const EclipseState& eclState_;

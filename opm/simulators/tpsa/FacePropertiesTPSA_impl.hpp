@@ -122,26 +122,22 @@ update()
         weightsAvg_.reserve(numElements * 3 * 1.05);
         weightsProd_.reserve(numElements * 3 * 1.05);
         distance_.reserve(numElements * 3 * 1.05);
-        faceArea_.reserve(numElements * 3 * 1.05);
         faceNormal_.reserve(numElements * 3 * 1.05);
     }
     weightsAvgBoundary_.clear();
     weightsProdBoundary_.clear();
     distanceBoundary_.clear();
-    faceAreaBoundary_.clear();
     faceNormalBoundary_.clear();
 
     // Initialize thread safe insert_or_assign for face properties in the grid and separate for boundaries
     ThreadSafeMapBuilder weightsAvgMap(weightsAvg_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder weightsProdMap(weightsProd_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder distanceMap(distance_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
-    ThreadSafeMapBuilder faceAreaMap(faceArea_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder faceNormalMap(faceNormal_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
 
     ThreadSafeMapBuilder weightsAvgBoundaryMap(weightsAvgBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder weightsProdBoundaryMap(weightsProdBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder distanceBoundaryMap(distanceBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
-    ThreadSafeMapBuilder faceAreaBoundaryMap(faceAreaBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
     ThreadSafeMapBuilder faceNormalBoundaryMap(faceNormalBoundary_, num_threads, MapBuilderInsertionMode::Insert_Or_Assign);
 
 #ifdef _OPENMP
@@ -168,7 +164,6 @@ update()
                     // One-sided cell properties
                     const auto& geometry = intersection.geometry();
                     inside.faceCenter = geometry.center();
-                    inside.faceArea = geometry.volume();
                     faceNormal = intersection.centerUnitOuterNormal();
 
                     // Face properties on boundary
@@ -181,7 +176,6 @@ update()
                     weightsAvgBoundaryMap.insert_or_assign(index_pair, weightsAvgBound);
                     weightsProdBoundaryMap.insert_or_assign(index_pair, weightsProdBound);
 
-                    faceAreaBoundaryMap.insert_or_assign(index_pair, inside.faceArea);
                     faceNormalBoundaryMap.insert_or_assign(index_pair, faceNormal);
 
                     ++boundaryIsIdx;
@@ -214,7 +208,6 @@ update()
                     const auto id = details::isIdTPSA(inside.elemIdx, outside.elemIdx);
                     weightsAvgMap.insert_or_assign(id, 0.0);
                     distanceMap.insert_or_assign(id, 0.0);
-                    faceAreaMap.insert_or_assign(id, 0.0);
                     faceNormalMap.insert_or_assign(id, DimVector{0.0, 0.0, 0.0});
 
                     continue;
@@ -241,7 +234,6 @@ update()
                 weightsAvgMap.insert_or_assign(id, weightsAvg);
                 weightsProdMap.insert_or_assign(id, weightsProd);
 
-                faceAreaMap.insert_or_assign(id, inside.faceArea);
                 faceNormalMap.insert_or_assign(id, faceNormal);
             }
         }
@@ -338,32 +330,6 @@ normalDistanceBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
 }
 
 /*!
-* \brief Cell face area of interface between two elements
-*
-* \param elemIdx1 Cell index 1
-* \param elemIdx1 Cell index 2
-*/
-template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-cellFaceArea(unsigned elemIdx1, unsigned elemIdx2) const
-{
-    return faceArea_.at(details::isIdTPSA(elemIdx1, elemIdx2));
-}
-
-/*!
-* \brief Cell face area of boundary interface
-*
-* \param elemIdx Cell index
-* \param boundaryFaceIdx Face index
-*/
-template<class Grid, class GridView, class ElementMapper, class CartesianIndexMapper, class Scalar>
-Scalar FacePropertiesTPSA<Grid, GridView, ElementMapper, CartesianIndexMapper, Scalar>::
-cellFaceAreaBoundary(unsigned elemIdx, unsigned boundaryFaceIdx) const
-{
-    return faceAreaBoundary_.at(std::make_pair(elemIdx, boundaryFaceIdx));
-}
-
-/*!
 * \brief Cell face normal at interface between two elements
 *
 * \param elemIdx1 Cell index 1
@@ -432,7 +398,6 @@ computeCellProperties(const Intersection& intersection,
     // default implementation for DUNE grids
     const auto& geometry = intersection.geometry();
     outside.faceCenter = inside.faceCenter = geometry.center();
-    outside.faceArea = inside.faceArea = geometry.volume();
 
     // OBS: Have not checked if this points from cell with lower to higher index!
     faceNormal = intersection.centerUnitOuterNormal();
@@ -460,9 +425,6 @@ computeCellProperties(const Intersection& intersection,
         // Face center coordinates
         inside.faceCenter = grid_.faceCenterEcl(inside.elemIdx, inside.faceIdx, intersection);
         outside.faceCenter = grid_.faceCenterEcl(outside.elemIdx, outside.faceIdx, intersection);
-
-        // Face area
-        inside.faceArea = outside.faceArea = grid_.faceArea(faceIdx);
 
         // Face normal, ensuring it points from cell with lower to higher (global grid) index
         faceNormal = grid_.faceNormal(faceIdx);

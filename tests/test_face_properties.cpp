@@ -131,7 +131,6 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     // Natural neighbor checks between cells 0 and 4
     const unsigned elem1 = 0;
     const unsigned elem2 = 4;
-    const double area = 2500.0;
     const double normDist = 40.0;
     const double weightAvg_04 = 0.375;
     const double weightAvg_40 = 0.625;  // = 1 - weightAvg_04
@@ -143,15 +142,12 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     BOOST_CHECK_CLOSE(faceProps.weightProduct(elem1, elem2), weightProd, 1.0e-8);
     BOOST_CHECK_EQUAL(faceProps.normalDistance(elem1, elem2), normDist);
     BOOST_CHECK_EQUAL(faceProps.normalDistance(elem2, elem1), normDist);
-    BOOST_CHECK_EQUAL(faceProps.cellFaceArea(elem1, elem2), area);
-    BOOST_CHECK_EQUAL(faceProps.cellFaceArea(elem2, elem1), area);
     BOOST_CHECK_EQUAL(faceProps.cellFaceNormal(elem1, elem2), normal_04);
     BOOST_CHECK_EQUAL(faceProps.cellFaceNormal(elem2, elem1), normal_40);
 
     // NNC checks between cell 3 and 5
     const unsigned elemNNC1 = 3;
     const unsigned elemNNC2 = 5;
-    const double areaNNC = 1000.0;
     const double normDistNNC = 50.0;
     const double weightAvgNNC = 0.5;
     const double weightProdNNC = 6.25e-16;
@@ -163,8 +159,6 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     BOOST_CHECK_CLOSE(faceProps.weightProduct(elemNNC2, elemNNC1), weightProdNNC, 1.0e-8);
     BOOST_CHECK_EQUAL(faceProps.normalDistance(elemNNC1, elemNNC2), normDistNNC);
     BOOST_CHECK_EQUAL(faceProps.normalDistance(elemNNC2, elemNNC1), normDistNNC);
-    BOOST_CHECK_EQUAL(faceProps.cellFaceArea(elemNNC1, elemNNC2), areaNNC);
-    BOOST_CHECK_EQUAL(faceProps.cellFaceArea(elemNNC2, elemNNC1), areaNNC);
     BOOST_CHECK_EQUAL(faceProps.cellFaceNormal(elemNNC1, elemNNC2), normalNNC_35);
     BOOST_CHECK_EQUAL(faceProps.cellFaceNormal(elemNNC2, elemNNC1), normalNNC_53);
 
@@ -173,7 +167,6 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
     const double normDistBnd = 25.0;
     const double weightAvgBnd = 1.0;
     const double weightProdBnd = 0.0;
-    const std::vector<double> areaBnd = {1000.0, 2500.0, 1000.0, 2500.0, 2500.0};
     const std::vector<DimVector> normalBnd = { {-1.0, 0.0, 0.0}, {1.0, 0.0, 0.0},  // x-dir
                                                {0.0, -1.0, 0.0}, {0.0, 1.0, 0.0},  // y-dir
                                                {0.0, 0.0, 1.0} };  // z-dir
@@ -181,7 +174,6 @@ BOOST_AUTO_TEST_CASE(SimpleGridWithNNC)
         BOOST_CHECK_EQUAL(faceProps.weightAverageBoundary(elemBnd, bndIdx), weightAvgBnd);
         BOOST_CHECK_CLOSE(faceProps.weightProductBoundary(elemBnd, bndIdx), weightProdBnd, 1.0e-8);
         BOOST_CHECK_EQUAL(faceProps.normalDistanceBoundary(elemBnd, bndIdx), normDistBnd);
-        BOOST_CHECK_EQUAL(faceProps.cellFaceAreaBoundary(elemBnd, bndIdx), areaBnd[bndIdx]);
         BOOST_CHECK_EQUAL(faceProps.cellFaceNormalBoundary(elemBnd, bndIdx), normalBnd[bndIdx]);
     }
 }
