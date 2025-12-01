@@ -164,6 +164,16 @@ opm_add_test(flow_gaswater_dissolution_tpsa
              $<TARGET_OBJECTS:moduleVersionTPSA>
 )
 
+opm_add_test(flow_blackoil_tpsa
+             ONLY_COMPILE
+             ALWAYS_ENABLE
+             DEPENDS opmsimulators opmtpsa
+             LIBRARIES opmsimulators opmtpsa
+             SOURCES
+             flow/flow_blackoil_tpsa.cpp
+             $<TARGET_OBJECTS:moduleVersionTPSA>
+)
+
 # Tests
 add_executable(test_face_properties
   tests/test_face_properties.cpp
