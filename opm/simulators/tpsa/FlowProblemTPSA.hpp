@@ -44,6 +44,7 @@
 #include <opm/simulators/tpsa/tpsamodel.hpp>
 #include <opm/simulators/tpsa/vtktpsamodule.hpp>
 
+#include <cmath>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -233,7 +234,7 @@ public:
         comm.sum(avgSmodulus);
         Scalar numTotalDof = comm.sum(numDof);
         avgSmodulus /= numTotalDof;
-        avgSmodulus = sqrt(avgSmodulus);
+        avgSmodulus = std::sqrt(avgSmodulus);
 
         for (unsigned eqIdx = 0; eqIdx < numEq; ++eqIdx) {
             if (eqIdx < contiRotEqIdx) {
