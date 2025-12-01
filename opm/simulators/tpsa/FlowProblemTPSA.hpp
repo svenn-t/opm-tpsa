@@ -55,20 +55,6 @@
 
 namespace Opm {
 
-namespace Parameters {
-
-// Default scheme for coupling Flow and TPSA
-struct TpsaCouplingScheme { inline static std::string value { "lagged" }; };
-
-// Default max sequential iterations
-struct TpsaFixedStressMaxIterations { static constexpr int value = 5; };
-
-// Default max sequential iterations
-struct TpsaFixedStressMinIterations { static constexpr int value = 1; };
-
-}  // namespace Opm::Parameters
-
-
 template <class TypeTag>
 class FlowProblemTPSA : public FlowProblemBlackoil<TypeTag>
 {
@@ -118,9 +104,27 @@ public:
                      simulator.vanguard().cellCentroids())
         , geoMechModel_(simulator)
     {
-        // Add VTK TPSA to output module
         if constexpr(enableMech) {
+            // Add VTK TPSA to output module
             this->model().addOutputModule(std::make_unique<VtkTpsaModule<TypeTag>>(simulator));
+
+            // Sanity check
+            const auto& tpsa = simulator.vanguard().eclState().runspec().tpsa();
+            if (!tpsa.active()) {
+                std::string msg = "Simulator with Tpsa-geomechanics enabled compile time, but deck does not contain "
+                                  "TPSA keyword!";
+                OpmLog::error(msg);
+                throw std::runtime_error(msg);
+            }
+        }
+        else {
+            // Sanity check
+            const auto& tpsa = simulator.vanguard().eclState().runspec().tpsa();
+            if (tpsa.active()) {
+                std::string msg = "TPSA keyword in deck, but Tpsa-geomechanics disabled compile-time!";
+                OpmLog::error(msg);
+                throw std::runtime_error(msg);
+            }
         }
     }
 
@@ -137,14 +141,6 @@ public:
 
         // VTK output parameters
         VtkTpsaModule<TypeTag>::registerParameters();
-
-        // Register TPSA runtime parameters
-        Parameters::Register<Parameters::TpsaCouplingScheme>
-            ("Choose scheme for coupling Flow and TPSA geomechanics: \"lagged\" or \"fixed-stress\"");
-        Parameters::Register<Parameters::TpsaFixedStressMinIterations>
-            ("Minimum number of \"fixed-stress\" iterations");
-        Parameters::Register<Parameters::TpsaFixedStressMaxIterations>
-            ("Maximum number of \"fixed-stress\" iterations");
     }
 
     /*!
@@ -160,9 +156,6 @@ public:
 
         // Set equation weights
         computeAndSetEqWeights_();
-
-        // Internalize runtime-registered parameters
-        readRuntimeParameters_();
 
         // Calculate face properties
         faceProps_.finishInit();
@@ -324,10 +317,10 @@ public:
     /*!
     * \brief Pore volume change due to geomechanics
     *
-    * \note This is the coupling term to Flow
-    *
     * \param globalDofIdx Cell index
     * \param timeIdx Time index
+    *
+    * \note This is the coupling term to Flow
     */
     Scalar rockMechPoroChange(unsigned elementIdx, unsigned timeIdx) const
     {
@@ -339,7 +332,7 @@ public:
         const auto biot = this->biotCoeff(elementIdx);
         const auto lameParam = this->lame(elementIdx);
 
-        return(biot / lameParam) * solidPres;
+        return biot / lameParam * solidPres;
     }
 
     // ///
@@ -433,11 +426,21 @@ public:
     }
 
     /*!
-    * \brief Get registered Flow-TPSA coupling scheme
+    * \brief Flow-TPSA lagged coupling scheme activated?
     */
-    std::string couplingScheme() const
+    bool laggedScheme() const
     {
-        return couplingScheme_;
+        const auto& tpsa = this->simulator().vanguard().eclState().runspec().tpsa();
+        return tpsa.laggedScheme();
+    }
+
+    /*!
+    * \brief Flow-TPSA fixed-stress coupling scheme activated?
+    */
+    bool fixedStressScheme() const
+    {
+        const auto& tpsa = this->simulator().vanguard().eclState().runspec().tpsa();
+        return tpsa.fixedStressScheme();
     }
 
     /*!
@@ -461,7 +464,8 @@ public:
     */
     std::pair<int, int> fixedStressParameters() const
     {
-        return std::make_pair(fixedStressMinIter_, fixedStressMaxIter_);
+        const auto& tpsa = this->simulator().vanguard().eclState().runspec().tpsa();
+        return std::make_pair(tpsa.fixedStressMinIter(), tpsa.fixedStressMaxIter());
     }
 
 protected:
@@ -490,36 +494,9 @@ protected:
         }
     }
 
-    /*!
-    * \brief Internalize runtime parameters
-    */
-    void readRuntimeParameters_()
-    {
-        // Flow-TPSA coupling scheme
-        couplingScheme_ = Parameters::Get<Parameters::TpsaCouplingScheme>();
-
-        // Fixed-stress scheme parameters
-        if (couplingScheme_ == "fixed-stress") {
-            fixedStressMinIter_ = Parameters::Get<Parameters::TpsaFixedStressMinIterations>();
-            fixedStressMaxIter_ = Parameters::Get<Parameters::TpsaFixedStressMaxIterations>();
-            if (fixedStressMinIter_ > fixedStressMaxIter_) {
-                int tmp = fixedStressMinIter_;
-                fixedStressMinIter_ = fixedStressMaxIter_;
-                fixedStressMaxIter_ = tmp;
-                std::string msg = fmt::format("Min. fixed-stress iterations (={}) > max. iterations (={}). Swapping!",
-                                              fixedStressMinIter_, fixedStressMaxIter_);
-                OpmLog::warning(msg);
-            }
-        }
-    }
-
 private:
     FaceProperties faceProps_;
     GeomechModel geoMechModel_;
-
-    std::string couplingScheme_;
-    int fixedStressMinIter_;
-    int fixedStressMaxIter_;
 
     std::vector<Scalar> biotcoeff_;
     std::vector<InitialMaterialState> initialMaterialState_;

@@ -75,16 +75,16 @@ public:
                                              const SimulatorTimerInterface& timer,
                                              NonlinearSolverType& nonlinear_solver)
     {
-        const std::string& couplingScheme = this->simulator_.problem().couplingScheme();
         SimulatorReportSingle report {};
-        if (couplingScheme == "fixed-stress") {
+        const auto& problem = this->simulator_.problem();
+        if (problem.fixedStressScheme()) {
             report = nonlinearIterationFixedStressTPSA(iteration, timer, nonlinear_solver);
         }
-        else if (couplingScheme == "lagged") {
+        else if (problem.laggedScheme()) {
             report = nonlinearIterationLaggedTPSA(iteration, timer, nonlinear_solver);
         }
         else {
-            std::string msg = fmt::format("Coupling scheme for Flow and TPSA not recognised: \"{}\"", couplingScheme);
+            std::string msg = "Unknown Flow-TPSA coupling scheme!";
             OpmLog::error(msg);
             throw std::runtime_error(msg);
         }
@@ -138,7 +138,8 @@ public:
             ++seqIter_;
 
             // Fixed-stress convergence check:
-            // If the initial residual error, hence no. linearizations = 1, was small enough, we have converged
+            // If the initial residual error, hence check for no. linearizations == 1, was small enough, we have
+            // convergence in the fixed-stress iterations
             if (tpsaConv
                 && this->simulator_.problem().geoMechModel().newtonMethod().numLinearizations() == 1
                 && seqIter_ >= minSeqIter) {
