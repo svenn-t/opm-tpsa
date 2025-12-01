@@ -116,8 +116,8 @@ public:
         faceTerm = 0.0;
 
         // Extract some face properties
-        const Scalar weightAvgIn = problem.weightAvgerage(globalIndexIn, globalIndexEx);
-        const Scalar weightAvgEx = problem.weightAvgerage(globalIndexEx, globalIndexIn);
+        const Scalar weightAvgIn = problem.weightAverage(globalIndexIn, globalIndexEx);
+        const Scalar weightAvgEx = problem.weightAverage(globalIndexEx, globalIndexIn);
         const Scalar weightProd = problem.weightProduct(globalIndexIn, globalIndexEx);
         const Scalar normDist = problem.normalDistance(globalIndexIn, globalIndexEx);
         const auto& faceNormal = problem.cellFaceNormal(globalIndexIn, globalIndexEx);
@@ -258,7 +258,7 @@ public:
 
         // Extract some face properties
         const unsigned bfIdx = bdyInfo.boundaryFaceIndex;
-        const Scalar weightAvg = problem.weightAvgerageBoundary(globalIndex, bfIdx);
+        const Scalar weightAvg = problem.weightAverageBoundary(globalIndex, bfIdx);
         const Scalar normDist = problem.normalDistanceBoundary(globalIndex, bfIdx);
         const auto& faceNormal = problem.cellFaceNormalBoundary(globalIndex, bfIdx);
 

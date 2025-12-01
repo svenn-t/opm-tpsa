@@ -344,7 +344,7 @@ public:
     * \param globalElemIdxIn Inside cell index
     * \param globalElemIdxOut Outside cell index
     */
-    Scalar weightAvgerage(unsigned globalElemIdxIn, unsigned globalElemIdxOut)
+    Scalar weightAverage(unsigned globalElemIdxIn, unsigned globalElemIdxOut)
     {
         return faceProps_.weightAverage(globalElemIdxIn, globalElemIdxOut);
     }
@@ -355,7 +355,7 @@ public:
     * \param globalElemIdxIn Inside cell index
     * \param boundaryFaceIdx Boundary (local) face index
     */
-    Scalar weightAvgerageBoundary(unsigned globalElemIdxIn, unsigned boundaryFaceIdx) const
+    Scalar weightAverageBoundary(unsigned globalElemIdxIn, unsigned boundaryFaceIdx) const
     {
         return faceProps_.weightAverageBoundary(globalElemIdxIn, boundaryFaceIdx);
     }
